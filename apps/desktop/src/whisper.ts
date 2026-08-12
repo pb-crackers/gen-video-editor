@@ -327,13 +327,23 @@ export async function transcribeAudio(
     await writeFile(input, audio);
     opts.onProgress?.({ phase: "Transcribing" });
 
-    await run(status.binary!, [
-      "-m", status.model!,
-      "-f", input,
-      "-oj", "-ojf",
-      "-of", outBase,
-      "--no-prints",
-    ]);
+    // whisper-cli exits 0 even when it fails to read the audio, so the exit
+    // code cannot be trusted — the output file is the only real signal, and its
+    // own log is the only place the reason appears.
+    const log: string[] = [];
+    await run(
+      status.binary!,
+      ["-m", status.model!, "-f", input, "-oj", "-ojf", "-of", outBase, "--no-prints"],
+      (line) => {
+        log.push(line);
+        if (log.length > 40) log.shift();
+      },
+    );
+
+    if (!(await exists(`${outBase}.json`))) {
+      const reason = log.filter((l) => /error|failed/i.test(l)).join("; ") || log.slice(-3).join("; ");
+      throw new Error(`whisper.cpp produced no transcript${reason ? `: ${reason}` : "."}`);
+    }
 
     const parsed = JSON.parse(await readFile(`${outBase}.json`, "utf8")) as {
       transcription?: Array<{ text?: string; tokens?: Array<{ text: string; offsets?: { from: number; to: number } }> }>;

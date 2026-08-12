@@ -133,8 +133,8 @@ export async function transcribeScene(
     const encoder = await createEncoder(world, {
       scene: sceneEid,
       video: { enabled: false },
-      audio: { enabled: true, codec: "opus", sampleRate: 24000 },
-      format: "ogg",
+      audio: { enabled: true, codec: "pcm-s16", numberOfChannels: 1, sampleRate: 16000 },
+      format: "wav",
     });
     result = await encoder.render();
   } finally {
@@ -147,7 +147,7 @@ export async function transcribeScene(
 
   onStatus?.("transcribing");
   // Local whisper.cpp in the main process; the mixed audio never leaves the machine.
-  const transcript = await transcribeBytes(new Uint8Array(await result.data.arrayBuffer()), ".ogg");
+  const transcript = await transcribeBytes(new Uint8Array(await result.data.arrayBuffer()), ".wav");
 
   assert(transcript.length, "No speech detected. The audio does not appear to contain recognizable speech.");
   assert(transcript.every((s) => s.words.length > 0), "No speech detected. The audio does not appear to contain recognizable speech.");

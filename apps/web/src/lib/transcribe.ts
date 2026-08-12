@@ -58,11 +58,11 @@ export function watchTranscriptionProgress(): () => void {
 
 /**
  * Transcribe already-encoded audio bytes. whisper.cpp reads wav/flac/mp3/ogg;
- * the engine produces 16 kHz mono Ogg/Opus for both callers.
+ * the engine produces 16 kHz mono PCM wav for both callers.
  */
 export async function transcribeBytes(
   bytes: Uint8Array,
-  extension = ".ogg",
+  extension = ".wav",
 ): Promise<WhisperSegment[]> {
   if (!window.desktop) throw new Error(NO_DESKTOP);
 
@@ -84,5 +84,5 @@ export async function transcribeBytes(
  */
 export async function transcribeAsset(asset: Asset): Promise<WhisperSegment[]> {
   const audio = await transcodeForTranscription(asset);
-  return transcribeBytes(new Uint8Array(await audio.arrayBuffer()), ".ogg");
+  return transcribeBytes(new Uint8Array(await audio.arrayBuffer()), ".wav");
 }

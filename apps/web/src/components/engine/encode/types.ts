@@ -4,7 +4,7 @@
 
 import type { StreamTargetChunk } from 'mediabunny';
 
-export type ContainerFormat = 'mp4' | 'webm' | 'ogg' | 'mov';
+export type ContainerFormat = 'mp4' | 'webm' | 'ogg' | 'mov' | 'wav';
 
 // Minimal FileSystemFileHandle-shaped target
 export interface WritableFileTarget {

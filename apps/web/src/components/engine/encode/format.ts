@@ -15,6 +15,11 @@ export async function createOutputFormat(buffer: TargetBuffer, format?: Containe
   } else if (format == 'ogg') {
     const { OggOutputFormat } = await import('mediabunny');
     return new OggOutputFormat();
+  } else if (format == 'wav') {
+    // Uncompressed PCM, for consumers that decode without a codec library —
+    // whisper.cpp's bundled miniaudio reads wav/mp3/flac but not Opus.
+    const { WavOutputFormat } = await import('mediabunny');
+    return new WavOutputFormat();
   } else if (format == 'mov') {
     const { MovOutputFormat } = await import('mediabunny');
     return new MovOutputFormat();

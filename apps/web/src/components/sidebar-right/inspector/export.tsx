@@ -605,6 +605,9 @@ const CONTAINER_SIZE_FACTORS: Record<ContainerFormat, number> = {
   webm: 0.96,
   ogg: 0.93,
   mov: 1.03,
+  // Uncompressed; only ever reached by the transcription path, never the
+  // export dropdown, which lists video containers only.
+  wav: 1,
 };
 
 function estimateFileSize(config?: ExportConfig, duration?: number) {

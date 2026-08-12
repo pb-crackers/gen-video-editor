@@ -29,6 +29,7 @@ export const MIME_TYPES: Record<ContainerFormat, string> = {
   webm: "video/webm",
   ogg: "audio/ogg",
   mov: "video/quicktime",
+  wav: "audio/wav",
 };
 
 export const EXPORT_TEMPLATE_GROUPS: ExportTemplateGroup[] = [
