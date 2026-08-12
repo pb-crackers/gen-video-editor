@@ -8,8 +8,6 @@ import { Match, Switch } from "solid-js";
 import { Dialog, DialogContent, DialogPortal } from "@/components/ui/dialog";
 
 import { DashboardAccountView } from "./account-view";
-import { DashboardAiCreditsView } from "./ai-credits-view";
-import { DashboardBillingView } from "./billing-view";
 import { DashboardHelpView } from "./help-view";
 import { DashboardProjectsView } from "./projects-view";
 import { DashboardSettingsView } from "./settings-view";
@@ -21,8 +19,6 @@ import type { DashboardView } from "./types";
 const DASHBOARD_VIEWS: readonly DashboardView[] = [
   "projects",
   "templates",
-  "ai-credits",
-  "billing",
   "account",
   "settings",
   "preferences",
@@ -62,9 +58,7 @@ export function Dashboard() {
               <DashboardSidebarHeader />
               <DashboardSidebarNav>
                 <DashboardSidebarItem active={view() === "projects"} onClick={() => setView("projects")} icon="diffusion-project-file" label="Projects" />
-                <DashboardSidebarItem active={view() === "ai-credits"} onClick={() => setView("ai-credits")} icon="ai-generate" label="AI credits" class="mt-auto" />
-                <DashboardSidebarItem active={view() === "billing"} onClick={() => setView("billing")} icon="billing" label="Billing" />
-                <DashboardSidebarItem active={view() === "settings"} onClick={() => setView("settings")} icon="settings" label="Settings" />
+                <DashboardSidebarItem active={view() === "settings"} onClick={() => setView("settings")} icon="settings" label="Settings" class="mt-auto" />
                 <DashboardSidebarItem active={view() === "help"} onClick={() => setView("help")} icon="help" label="Help" />
               </DashboardSidebarNav>
               <DashboardSidebarUser active={view() === "account"} onClick={() => setView("account")} />
@@ -76,12 +70,6 @@ export function Dashboard() {
               <Switch>
                 <Match when={view() === "projects"}>
                   <DashboardProjectsView />
-                </Match>
-                <Match when={view() === "ai-credits"}>
-                  <DashboardAiCreditsView />
-                </Match>
-                <Match when={view() === "billing"}>
-                  <DashboardBillingView />
                 </Match>
                 <Match when={view() === "account"}>
                   <DashboardAccountView />

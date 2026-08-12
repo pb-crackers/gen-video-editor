@@ -2,24 +2,13 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+/**
+ * There is no Supabase project behind this fork.
+ *
+ * The export is kept (typed `null`) rather than deleted so that any remaining
+ * `if (!supabase) return` guards upstream still read naturally, and so a stray
+ * import fails at the call site instead of at module load.
+ */
+import type { SupabaseClient } from '@supabase/supabase-js';
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string | undefined;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
-
-function initSupabase(): SupabaseClient | null {
-  if (!supabaseUrl || !supabaseAnonKey) {
-    console.warn('[supabase] VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY are not set. Auth is disabled.');
-    return null;
-  }
-
-  return createClient(supabaseUrl, supabaseAnonKey, {
-    auth: {
-      flowType: 'pkce',
-      persistSession: true,
-      autoRefreshToken: true,
-    },
-  });
-}
-
-export const supabase = initSupabase();
+export const supabase: SupabaseClient | null = null;

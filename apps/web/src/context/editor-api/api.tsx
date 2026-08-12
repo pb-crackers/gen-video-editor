@@ -7,6 +7,7 @@ import { useSearchParams } from "@solidjs/router";
 import { useEngine } from '@/context/engine';
 import { useProjectId } from '@/hooks/use-project-id';
 import { useAuth } from '@/context/auth';
+import { hasHostedApi } from '@/lib/trpc';
 import { t, q, m, q0, m0 } from "@/lib/cli-rpc";
 import { handleContextGet } from "./context";
 import { handleAssetsAdd, handleAssetsList, handleAssetTree, handleAssetsDelete, handleAssetsMove, handleAssetsExport } from "./assets";
@@ -47,8 +48,13 @@ export function EditorApiProvider(props: EditorApiProviderProps) {
   const [, setParams] = useSearchParams();
   const [isFullscreen, { mutate }] = createResource(handleGetFullscreenState, { initialValue: false });
 
+  // There are no accounts in this build. What a generative call can still lack
+  // is somewhere to send the request, so that is what gets checked.
   const requireAuth = <I, O>(fn: (data: I) => Promise<O>) => (data: I) => {
-    assert(auth.isAuthenticated(), "Sign in required: AI generation needs a Diffusion Studio account.");
+    assert(
+      hasHostedApi,
+      "No model provider configured. Set VITE_API_URL to a gateway that implements the generation API.",
+    );
     return fn(data);
   };
 

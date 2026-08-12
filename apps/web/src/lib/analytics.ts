@@ -32,6 +32,9 @@ let initialized = false;
 
 export function initAnalytics(): void {
   if (initialized) return;
+  // Unconfigured is the default in this fork: no website id, no script, no
+  // beacon. Set VITE_UMAMI_* only if you are pointing at your own instance.
+  if (!scriptUrl || !websiteId) return;
   initialized = true;
 
   const script = document.createElement("script");
