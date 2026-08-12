@@ -2,7 +2,7 @@
  * What a primitive buys: three stats, three different contents, one graphic.
  * The caller writes content and timing. Nothing else is available to get wrong.
  */
-import { Stat } from "./stat";
+import { Stat } from "../../film/primitives/stat";
 
 const W = 1080;
 const H = 1920;

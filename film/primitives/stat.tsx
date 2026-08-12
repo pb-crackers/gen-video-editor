@@ -28,6 +28,8 @@ const TOKENS = {
   eyebrowSize: 26,
 };
 
+export type StatTheme = { accent: string; ink: string; card: string };
+
 export type StatProps = {
   /** The number, as written. "1.4M downloads" and "~10" both work. */
   value: string;
@@ -39,6 +41,13 @@ export type StatProps = {
   /** Timeline placement, in seconds. */
   start: number;
   end: number;
+  /**
+   * Film-level palette. Colour only — the type scale, layout and easing stay
+   * with the primitive, which is what keeps two films' stats the same graphic.
+   */
+  theme?: StatTheme;
+  /** Node name. The compiler stamps the segment id here; see film/compile.tsx. */
+  name?: string;
   x?: number;
   y?: number;
   width?: number;
@@ -65,6 +74,8 @@ function parseValue(value: string) {
 const clamp = (v: number, lo: number, hi: number) => Math.min(Math.max(v, lo), hi);
 
 export function Stat(props: StatProps) {
+  const theme = (): StatTheme =>
+    props.theme ?? { accent: TOKENS.accent, ink: TOKENS.ink, card: TOKENS.card };
   const parsed = () => (props.countUp !== false ? parseValue(props.value) : null);
 
   const v = { rise: 36, opacity: 0, count: 0, note: 0 };
@@ -115,15 +126,15 @@ export function Stat(props: StatProps) {
       height={props.height ?? 360}
       start={props.start}
       end={props.end}
-      name={`Stat: ${props.label}`}
+      name={props.name ?? `Stat: ${props.label}`}
     >
       <div
         style={{
           "box-sizing": "border-box",
           padding: "32px 40px",
           "font-family": TOKENS.sans,
-          color: TOKENS.ink,
-          background: TOKENS.card,
+          color: theme().ink,
+          background: theme().card,
           border: TOKENS.hairline,
           "border-radius": TOKENS.radius,
           display: "flex",
@@ -139,7 +150,7 @@ export function Stat(props: StatProps) {
             "font-weight": "800",
             "letter-spacing": "-0.05em",
             "line-height": "1",
-            color: TOKENS.accent,
+            color: theme().accent,
             "white-space": "nowrap",
             "flex-shrink": "0",
           }}
@@ -153,7 +164,7 @@ export function Stat(props: StatProps) {
                 "font-size": `${TOKENS.eyebrowSize}px`,
                 "font-weight": "700",
                 "letter-spacing": "0.18em",
-                color: TOKENS.accent,
+                color: theme().accent,
                 "margin-bottom": "8px",
               }}
             >

@@ -1,0 +1,42 @@
+{
+  "title": "Dev Log Part 3",
+  "source": "UkLW",
+  "segments": [
+    {
+      "id": "phases-shipped",
+      "startMs": 14900,
+      "endMs": 20400,
+      "note": "the first six and a half phases of my 25 phase or so plan",
+      "canvas": {
+        "kind": "stat",
+        "value": "6.5",
+        "label": "phases shipped",
+        "sublabel": "of 25, and the plan grows every day"
+      }
+    },
+    {
+      "id": "typo-crash",
+      "startMs": 30500,
+      "endMs": 39200,
+      "note": "one tiny typo crashes the entire render",
+      "canvas": {
+        "kind": "stat",
+        "value": "1",
+        "label": "typo",
+        "sublabel": "and the whole render dies"
+      }
+    },
+    {
+      "id": "hours-total",
+      "startMs": 115000,
+      "endMs": 121400,
+      "note": "this has probably only been about like 10 total hours of work",
+      "canvas": {
+        "kind": "stat",
+        "value": "~10 hours",
+        "label": "of work",
+        "sublabel": "total \u2014 built between shifts"
+      }
+    }
+  ]
+}
