@@ -3,8 +3,8 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 import { hasComponent, entityExists } from "bitecs";
-import { trpc } from "@/lib/trpc";
-import { PaintType, getEntityTree, getParentEntity, secondsToFrames, uploadBlob, loadAsset } from "@/components/engine";
+import { transcribeBytes } from "@/lib/transcribe";
+import { PaintType, getEntityTree, getParentEntity, secondsToFrames, loadAsset } from "@/components/engine";
 import { createEncoder } from "@/components/engine/encode/encoder";
 import { resolveTranscript } from "@/components/engine/decoders/caption/utils";
 import { assert } from "@/utils";
@@ -145,14 +145,9 @@ export async function transcribeScene(
     throw new Error("Failed to encode audio");
   }
 
-  onStatus?.("uploading");
-  const assetid = crypto.randomUUID();
-  const audioFile = new File([result.data], `${assetid}.ogg`, { type: "audio/ogg" });
-  const fileRef = await uploadBlob(audioFile, assetid);
-  assert(fileRef, "Failed to upload audio");
-
   onStatus?.("transcribing");
-  const { results: transcript } = await trpc.transcribe.mutate({ audio: fileRef });
+  // Local whisper.cpp in the main process; the mixed audio never leaves the machine.
+  const transcript = await transcribeBytes(new Uint8Array(await result.data.arrayBuffer()), ".ogg");
 
   assert(transcript.length, "No speech detected. The audio does not appear to contain recognizable speech.");
   assert(transcript.every((s) => s.words.length > 0), "No speech detected. The audio does not appear to contain recognizable speech.");

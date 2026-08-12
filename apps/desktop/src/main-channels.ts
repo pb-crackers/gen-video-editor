@@ -38,13 +38,34 @@ export const MAIN_CHANNELS = {
   FILE_WRITE_ABORT: "file:write-abort",
   HEADLESS_GET_MODE: "headless:get-mode",
   LOGS_GET: "logs:get",
+  WHISPER_STATUS: "whisper:status",
+  WHISPER_INSTALL: "whisper:install",
+  WHISPER_TRANSCRIBE: "whisper:transcribe",
 
   // Main→Renderer events
   AUTH_CALLBACK: "auth:callback",
   CHECKOUT_CALLBACK: "checkout:callback",
   WINDOW_FULLSCREEN_CHANGE: "window:fullscreen-change",
   HEADLESS_MODE: "headless:mode",
+  WHISPER_PROGRESS: "whisper:progress",
 } as const;
+
+/**
+ * Local speech-to-text, served by whisper.cpp in the main process. Declared
+ * here rather than imported from ./whisper so the renderer's type graph never
+ * reaches into an electron-importing module.
+ */
+export type WhisperWord = { text: string; start: number; end: number };
+export type WhisperSegment = { text: string; words: WhisperWord[] };
+export type WhisperProgress = { phase: string; detail?: string; ratio?: number };
+export type WhisperStatus = {
+  ready: boolean;
+  binary: string | null;
+  model: string | null;
+  modelName: string;
+  installMethod: "homebrew" | "source" | null;
+  missing: Array<"binary" | "model">;
+};
 
 export type MainChannel = (typeof MAIN_CHANNELS)[keyof typeof MAIN_CHANNELS];
 
@@ -82,6 +103,12 @@ export type MainRequestMap = {
   };
   [MAIN_CHANNELS.HEADLESS_GET_MODE]: { request: void; response: boolean };
   [MAIN_CHANNELS.LOGS_GET]: { request: void; response: LogEntry[] };
+  [MAIN_CHANNELS.WHISPER_STATUS]: { request: { model?: string } | void; response: WhisperStatus };
+  [MAIN_CHANNELS.WHISPER_INSTALL]: { request: { model?: string } | void; response: WhisperStatus };
+  [MAIN_CHANNELS.WHISPER_TRANSCRIBE]: {
+    request: { audio: Uint8Array; extension?: string; model?: string; interactive?: boolean };
+    response: WhisperSegment[];
+  };
 };
 export type MainRequestChannel = keyof MainRequestMap;
 
@@ -90,6 +117,7 @@ export type MainEventMap = {
   [MAIN_CHANNELS.CHECKOUT_CALLBACK]: { url: string };
   [MAIN_CHANNELS.WINDOW_FULLSCREEN_CHANGE]: { fullscreen: boolean };
   [MAIN_CHANNELS.HEADLESS_MODE]: { active: boolean };
+  [MAIN_CHANNELS.WHISPER_PROGRESS]: WhisperProgress;
 };
 export type MainEventChannel = keyof MainEventMap;
 

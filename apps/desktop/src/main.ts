@@ -13,7 +13,8 @@ import { trackInstall } from "./analytics";
 import { setupAppMenu } from "./menu";
 import { mainBridge } from "./main-manager";
 import { MAIN_CHANNELS } from "./main-channels";
-import type { DeepLinkChannel } from "./main-channels";
+import type { DeepLinkChannel, WhisperProgress } from "./main-channels";
+import { whisperStatus, installWhisper, transcribeAudio } from "./whisper";
 import type { LogEntry } from "@diffusionstudio/cli/protocol";
 
 const DEV_URL = "http://localhost:5173";
@@ -246,6 +247,27 @@ if (app.requestSingleInstanceLock()) {
   });
   mainBridge.handle(MAIN_CHANNELS.HEADLESS_GET_MODE, () => isHeadless());
   mainBridge.handle(MAIN_CHANNELS.LOGS_GET, () => logBuffer);
+
+  // Local transcription. Progress is pushed as an event so a long first-run
+  // install (a model download, or a source build) is visible rather than a hang.
+  const relayWhisperProgress = (progress: WhisperProgress) => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainBridge.emit(mainWindow, MAIN_CHANNELS.WHISPER_PROGRESS, progress);
+    }
+  };
+  mainBridge.handle(MAIN_CHANNELS.WHISPER_STATUS, (req) => whisperStatus(req?.model));
+  mainBridge.handle(MAIN_CHANNELS.WHISPER_INSTALL, (req) =>
+    installWhisper(req?.model, relayWhisperProgress),
+  );
+  mainBridge.handle(MAIN_CHANNELS.WHISPER_TRANSCRIBE, ({ audio, extension, model, interactive }) =>
+    transcribeAudio(audio, {
+      model,
+      extension,
+      // Headless has nobody to answer a dialog, so it fails with instructions.
+      interactive: interactive ?? !isHeadless(),
+      onProgress: relayWhisperProgress,
+    }),
+  );
   mainBridge.handle(MAIN_CHANNELS.FILE_TRANSFER, ({ selector, absolutePath }) =>
     setFileInputFiles(selector, absolutePath),
   );

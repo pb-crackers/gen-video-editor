@@ -6,10 +6,10 @@ import { ALL_FORMATS, BlobSource, CanvasSink, Input } from 'mediabunny';
 import { ElectronFileHandle } from '@/lib/electron-file-handle';
 import { pickInformativeTimes } from './frame-triage';
 import { trpc } from '@/lib/trpc';
-import { uploadBlob, filmstripAsset, waveformAsset, describeFileAsset, getAssetFile, formatTimecode, composeSheet, planSheet, planSheetSizes, sheetTimecode } from '@/components/engine';
+import { transcribeAsset } from '@/lib/transcribe';
+import { filmstripAsset, waveformAsset, describeFileAsset, getAssetFile, formatTimecode, composeSheet, planSheet, planSheetSizes, sheetTimecode } from '@/components/engine';
 import { assert } from '@/utils';
 import {
-  transcodeForTranscription,
   transcodeForAnalysis,
   startResumableSession,
   uploadResumableStream,
@@ -261,16 +261,8 @@ export function handleMediaTranscribe(engine: Accessor<Engine>) {
 
     let transcript = transcripts.get(asset.hash);
     if (!transcript) {
-      const uploadId = crypto.randomUUID();
-      const audioFile = await transcodeForTranscription(asset);
-      const fileRef = await uploadBlob(audioFile, uploadId);
-      if (!fileRef) throw new Error(`Failed to upload asset ${id} for transcription.`);
-
-      ({ results: transcript } = await trpc.transcribe.mutate({ audio: fileRef }));
-      if (!transcript.length || transcript.every((s) => s.words.length === 0)) {
-        throw new Error("No speech detected. The audio does not appear to contain recognizable speech.");
-      }
-
+      // Local whisper.cpp; nothing leaves the machine and nothing is billed.
+      transcript = await transcribeAsset(asset);
       transcripts.set(asset.hash, transcript);
     }
 
