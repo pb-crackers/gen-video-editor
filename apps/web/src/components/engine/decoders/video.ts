@@ -598,6 +598,13 @@ export class VideoExporter {
 	private currentCanvas: WrappedCanvas | null = null;
 	private firstTimestamp: number = 0;
 
+	/**
+	 * Whether this track carries alpha. Reported for diagnostics — a transparent
+	 * source that composites as an opaque black rectangle is the failure this
+	 * flag exists to make visible.
+	 */
+	public transparent = false;
+
 	public constructor(asset: VideoAsset) {
 		this.asset = asset;
 		this.initialized = this.initialize();
@@ -612,7 +619,15 @@ export class VideoExporter {
 			// See VideoBuffer.initialize: clamp so an edit-list head trim (negative first
 			// timestamp) doesn't offset every exported frame relative to the audio.
 			this.firstTimestamp = Math.max(0, await track.getFirstTimestamp() ?? 0);
-			this.canvasSink = new CanvasSink(track, { poolSize: 2 });
+
+			// Transparent sources (a speaker matte, a cut-out graphic) carry alpha as
+			// packet side data — a second encoded frame alongside the colour one. The
+			// sink discards it unless asked, which is why a VP9-alpha WebM used to
+			// composite as an opaque black rectangle. Gated on the track rather than
+			// set unconditionally: `alpha: true` makes the sink merge two decoded
+			// frames per output frame, and an opaque source should not pay for that.
+			this.transparent = await track.canBeTransparent();
+			this.canvasSink = new CanvasSink(track, { poolSize: 2, alpha: this.transparent });
 		} catch (e) {
 			console.error('Error initializing video exporter', e);
 			this.errored = true;

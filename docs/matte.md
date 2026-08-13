@@ -34,27 +34,59 @@ Source under test: 1080×1920, 30 fps, HEVC — **BT.2020 primaries, HLG transfe
 
 ---
 
-## 1. This engine drops video alpha
+## 1. Video alpha — fixed on the output path
 
-A VP9-alpha WebM (`alpha_mode=1`) composites as an **opaque black rectangle**.
-The cut-out is correct; the alpha plane is discarded. VP9 carries alpha as a
-secondary BlockAdditional stream and WebCodecs decodes only the primary one.
+**Status: renders and captures keep alpha. The live preview does not, yet.**
 
-Verified alongside it:
+The original finding was that a VP9-alpha WebM composited as an opaque
+rectangle — the cut-out correct, the alpha plane discarded. The cause turned out
+to be much smaller than "WebCodecs decodes only the primary stream":
+`mediabunny` already demuxes VP9 alpha side data and already merges it. Nothing
+was asking it to.
+
+Measured on `reel-04-matte.webm` (VP9, 1080×1920, 122s):
+
+```
+codec:             vp09.00.40.08.01.02.02.02.00
+canBeTransparent:  true
+packets checked:   30
+with alpha:        30        <- every packet carries alpha side data
+```
+
+The engine has two decoder paths and they are not the same code:
+
+| Path | Used by | Decoder | Alpha |
+| --- | --- | --- | --- |
+| `offline-video` | `dapi node render`, `dapi node capture` | `VideoExporter` → mediabunny `CanvasSink` | ✅ fixed |
+| `realtime` | the editor's live preview | `VideoBuffer`, hand-rolled `VideoDecoder` + atlas cache | ❌ still opaque |
+
+The fix on the output path is `new CanvasSink(track, { alpha: true })`, gated on
+`await track.canBeTransparent()` so an opaque source does not pay for a second
+decode per frame. Verified end to end: a matte composited over a striped
+backdrop cuts out cleanly at hair, an earbud cable and a bare arm, and an opaque
+video renders unchanged.
+
+**The preview is still to do**, and it is more work than the exporter was.
+`VideoBuffer` is hand-rolled for scrub performance, so it needs a second
+`VideoDecoder` fed from `packet.alphaToEncodedVideoChunk()`, frames paired by
+timestamp, and a merge. Note that mediabunny's `ColorAlphaMerger` is **not
+publicly exported**, so the merge has to be written here. `FrameCache` is
+already alpha-safe — both its canvases default to `alpha: true` and it clears
+before every draw — but `VideoBuffer.toBitmap()` draws to its display canvas
+**without** a `clearRect`, which would leave the previous frame showing through
+transparent pixels. Fix that in the same pass.
+
+Still true, and still worth knowing:
 
 | | result |
 | --- | --- |
-| VP9-alpha WebM | ❌ alpha dropped |
 | PNG with alpha, including partial | ✅ exact, blends correctly |
 | `<shaderPaint>` | one texture input only — a second video cannot be sampled |
 | image-sequence decoder | accepts `png/webp/avif` via `createImageBitmap` |
 
-So there are two ways to carry a matte here: an **image sequence with alpha**
-(works today, costs disk), or **teaching `decoders/video.ts` to demux and decode
-the alpha stream** (the real fix, and the reason to own the engine).
-
-The single-texture limit on `shaderPaint` rules out the obvious alternative of
-pairing a colour video with a separate luma matte.
+The single-texture limit on `shaderPaint` still rules out pairing a colour video
+with a separate luma matte, and the image sequence is still the fallback if a
+codec ever turns up that mediabunny cannot demux.
 
 ## 2. The colour was wrong, and it is wrong upstream too
 

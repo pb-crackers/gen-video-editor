@@ -48,9 +48,11 @@ Where this is, what was decided, and what bites. Read `docs/matte.md` and
   graphic took slot 5). Never address by position.
 - **`dapi mount` replaces a scene**, it does not reconcile. Human edits are lost
   on the next mount. Fixing this is engine work you now own.
-- **The engine drops video alpha.** VP9-alpha WebM composites as opaque black.
-  PNG alpha works exactly. `shaderPaint` takes one texture, so a colour+luma
-  pair is not a workaround either.
+- **Video alpha is fixed on the output path, not in the preview.** `render` and
+  `capture` run `offline-video` → `VideoExporter` → mediabunny's `CanvasSink`,
+  which now gets `alpha: true`. The editor's live preview runs `realtime` →
+  `VideoBuffer`, which is hand-rolled and still drops alpha. A matte therefore
+  looks wrong on screen and correct in the export. See `docs/matte.md` § 1.
 - **Source footage is HDR (BT.2020/HLG) and nothing tone-maps it** → desaturated
   skin. Affects directors-cut today. Fix is 1.83× saturation. See `docs/matte.md`.
 - **`whisper-cli` exits 0 when it cannot read the audio**, and its bundled
@@ -64,16 +66,21 @@ Where this is, what was decided, and what bites. Read `docs/matte.md` and
 
 ## Next
 
-1. **The differ.** Old config vs new → minimal `node patch` set, computed by code
-   so a model's changes outside the segment it was allowed to touch get dropped.
-   This is the piece that makes surgical edits a guarantee. Everything it needs
-   exists.
-2. **More primitives.** `code`, `compare`, `stack`, `image` are straightforward.
-   `repo`/`dashboard`/`landing` share window chrome — build once, get three.
-   `diagram`/`sequence` are the `<surface>` work; do them last.
-3. **Matte.** Tone-map first, RVM resnet50 at `downsample_ratio` 0.4, composite
-   from `fgr`, despill. Carry as an alpha image sequence until the decoder learns
-   VP9 alpha. Open question: image sequence vs fixing `decoders/video.ts`.
+**[docs/plan.md](docs/plan.md) is the ordered task list.** In short:
+
+1. **The matte** — graphics behind the speaker. The engine drops video alpha, so
+   the effect is unavailable. Highest value and biggest unknown, so it goes first.
+2. **Format** — portrait *and* landscape. Reels and YouTube are both first-class,
+   and the difference is not a width parameter. Blocking: every primitive built
+   before this bakes in portrait.
+3. **Primitives** — a floor so the agent does not start from zero, not a port of
+   directors-cut's fifteen kinds. `custom` (agent-authored components) matters
+   more than the rest of the list combined.
+4. **The skills** — `editor` keeps mechanics, `director` owns judgment. Last,
+   because a skill describing capabilities that do not exist is fiction.
+
+**The differ is deferred.** It is the right design, but it protects an iterative
+edit loop that does not exist until the above works.
 
 ## Running it
 
