@@ -167,13 +167,12 @@ graphics, without being told the mechanics in the prompt.
 
 ## Not on the path, but true
 
-- **There is no `ffmpeg` on this machine.** The only one is Remotion's bundled
-  binary in directors-cut, which is the dependency this fork exists to escape.
-  It runs standalone with `DYLD_LIBRARY_PATH` set to its own directory, and it
-  does carry `zscale`/`tonemap` (libzimg) — but it is built `--disable-filters`
-  with an allow-list, so common filters like `format` are simply absent. Matte
-  production (1d) needs a real ffmpeg. The whisper.ts find-or-install pattern is
-  the precedent to follow.
+- **ffmpeg is found-or-installed, like whisper.** `apps/desktop/src/ffmpeg.ts`
+  follows the same shape: env override, then discovery, then a Homebrew install
+  the user agrees to. It installs **`ffmpeg-full`**, not `ffmpeg` — only the
+  former depends on `zimg`, and without `zimg` there is no `zscale` and so no
+  HDR tone-map. Discovery probes *capabilities*, not the presence of a binary
+  named ffmpeg, and reports "wrong build" separately from "not installed".
 - **genai is still hosted and paid.** Image, video and audio generation route
   through a paid service; transcription is the part that was made local. Not
   blocking — a talking-head cut needs none of it — but goal #1 is not fully met

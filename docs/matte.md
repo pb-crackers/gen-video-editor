@@ -39,19 +39,22 @@ Source under test: 1080×1920, 30 fps, HEVC — **BT.2020 primaries, HLG transfe
 > ```sh
 > ffmpeg -i in.mp4 \
 >   -vf "zscale=t=linear:npl=100,tonemap=hable:desat=0,\
-> zscale=p=bt709:t=bt709:m=bt709:r=tv" \
->   -pix_fmt yuv420p \
+> zscale=p=bt709:t=bt709:m=bt709:r=tv,format=yuv420p" \
 >   -color_primaries bt709 -color_trc bt709 -colorspace bt709 out.mp4
 > ```
 >
 > Tone-map before segmenting. Do **not** tone-map before mounting — the engine
 > already did it, and doing it twice is a second lossy pass for nothing.
 >
-> Two notes on that command. The original carried `format=yuv420p` inside `-vf`;
-> Remotion's bundled ffmpeg is built `--disable-filters` with an allow-list that
-> has no `format`, so it is `-pix_fmt` here instead. And the earlier **1.83×**
-> figure is the same effect measured on a different frame — direction and order
-> of magnitude agree, the exact number does not transfer.
+> **`zscale` is the part that is not portable.** It needs libzimg. Homebrew's
+> `ffmpeg-full` formula lists `zimg` as a dependency; plain `ffmpeg` does not —
+> so the ffmpeg most machines already have will likely fail this command while
+> looking installed and healthy. Measured here: `ffmpeg-full` 9.0.1 has
+> `zscale` and `libvpx-vp9`. `apps/desktop/src/ffmpeg.ts` probes for the
+> capability rather than for a binary named ffmpeg, for exactly this reason.
+>
+> The earlier **1.83×** figure is the same effect measured on a different frame —
+> direction and order of magnitude agree, the exact number does not transfer.
 
 ---
 
