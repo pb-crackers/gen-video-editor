@@ -232,6 +232,43 @@ runtime that silently returns the wrong answer.
 Caveats on these numbers: medians over 24 frames (12 for the browser runs) of a
 single clip, one machine. Treat them as a ranking, not as a spec.
 
+## 4c. Grading a matte — `film/matte-check.tsx`
+
+Judge against the plate it ships on. A saturated backdrop exaggerates every
+artefact and a black one hides them all, so put the graphic **where the head
+goes** and watch text get interrupted mid-word. Measured on a 5.3s shot,
+resnet50 @ 0.4:
+
+| | |
+| --- | --- |
+| coverage | 42.75% mean, sd 1.56, range 37.4–46.5 |
+| soft-edge band | 2.12% of frame |
+| binary pixels flipping / frame | 1186 mean (0.91% of frame at 270×480) |
+
+Do **not** compare those flip and wobble figures against § 4's table: that was a
+different resolution, a shorter window, and a less mobile subject. Coverage
+swings 37→46% here because the subject is gesturing, which is motion, not
+jitter. Compare a matte against another matte measured the same way.
+
+The edge itself is sound. The same frame composited over a dark plate and over
+a near-white one both read correctly — no bright halo on the dark, no dark
+halo on the light — which is the real test that `fgr` decontamination is
+working rather than the background merely being hidden.
+
+> ### ⚠ The source is not one continuous shot
+>
+> A grading window that hit frame 187 showed the matte "collapsing" to 0%
+> coverage for 23 straight frames. It was not a defect: **the footage cuts to a
+> screen recording at 19.34s**, and RVM correctly reported no subject. Naive and
+> tone-mapped brightness both drop 46.9% at exactly that frame, which is what a
+> cut looks like in a number.
+>
+> Two things follow. **An empty matte is a legitimate result** and must never be
+> treated as failure. And **matting a whole clip wastes most of its runtime** on
+> beats with nobody in them — matte per segment, which is what `startSec` and
+> `maxFrames` are for. Compute stability *within* a shot; across a cut the
+> numbers are meaningless.
+
 ## 5. What is left, and it is not the algorithm
 
 Two artefacts survive all of the above, and neither is fixable by a better model:

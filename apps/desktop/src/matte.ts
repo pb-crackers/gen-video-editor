@@ -237,6 +237,11 @@ export type MatteOptions = {
   despill?: number;
   /** Stop after N frames. For checking a setup without paying for the whole clip. */
   maxFrames?: number;
+  /**
+   * Seconds into the source to begin. Matting only the beats that need a
+   * cut-out is the difference between minutes and half an hour.
+   */
+  startSec?: number;
   interactive?: boolean;
   onProgress?: (p: MatteProgress) => void;
 };
@@ -278,7 +283,10 @@ export async function generateMatte(
 
   // Decode + tone-map. HDR -> BT.709 here and nowhere else in the chain.
   const decodeArgs = [
-    "-loglevel", "error", "-i", input,
+    "-loglevel", "error",
+    // Before -i, so ffmpeg seeks rather than decoding and discarding.
+    ...(opts.startSec ? ["-ss", String(opts.startSec)] : []),
+    "-i", input,
     ...(opts.maxFrames ? ["-frames:v", String(opts.maxFrames)] : []),
     "-vf",
     "zscale=t=linear:npl=100,tonemap=hable:desat=0," +
