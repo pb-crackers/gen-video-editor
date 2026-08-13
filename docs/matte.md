@@ -187,6 +187,51 @@ Composite from RVM's **`fgr`** output, never the raw frame — `fgr` is the
 decontaminated foreground with background colour removed from semi-transparent
 pixels. Using the raw frame is what leaks the room in around the edge.
 
+## 4b. Which ONNX runtime — measured, because one of them lies
+
+Before building the pipeline, all four candidate runtimes were run on the same
+24 tone-mapped frames of the same clip, at `downsample_ratio` 0.4, 1080×1920.
+Correctness is judged by alpha coverage and soft-pixel share: a correct matte of
+this shot is ~43% covered with ~1–2% soft edge pixels.
+
+| runtime | model | fps | coverage | soft | correct |
+| --- | --- | --- | --- | --- | --- |
+| onnxruntime-node, **CoreML** | **resnet50** | **5.42** | 42.34% | 1.84% | ✅ |
+| onnxruntime-node, CoreML | mobilenetv3 | 6.81 | 42.95% | 1.93% | ✅ |
+| onnxruntime-node, CPU | mobilenetv3 | 6.59 | 42.81% | 1.78% | ✅ |
+| onnxruntime-web, wasm | mobilenetv3 | 4.75 | 43.14% | 1.20% | ✅ |
+| onnxruntime-node, CPU | resnet50 | 1.99 | 42.34% | 1.84% | ✅ |
+| onnxruntime-web, **WebGPU** | mobilenetv3 | 4.86 | **9.36%** | **25.17%** | ❌ |
+
+> ### ⚠ onnxruntime-web's WebGPU backend produces a wrong matte
+>
+> Not slow — **wrong**. The output is a smeared ghost with no subject in it:
+> 9% coverage against an expected 43%, and 25% soft pixels against an expected
+> 1–2%. The same page, same model, same frames, switched to the `wasm` backend,
+> returns a correct matte — so this is the WebGPU execution provider, not the
+> harness. Verified with `?ep=wasm` as an explicit control.
+>
+> It is also **not faster** (4.86 fps vs wasm's 4.75), so there is nothing to
+> recover by fixing it. Do not spend a day on this again.
+
+Two consequences that decided the architecture:
+
+- **CoreML is worth it for resnet50 and nearly irrelevant for mobilenetv3.**
+  resnet50 goes 1.99 → 5.42 fps (2.7×); mobilenetv3 moves 6.59 → 6.81. The big
+  model is the one with work to offload.
+- **The better model is now also the fast one.** resnet50 on CoreML (5.42 fps)
+  beats every in-browser option, including on the *worse* model. It also beats
+  this document's own earlier CoreML figure of 3.5 fps — see § 4, which was
+  measured on a different setup and should be treated as superseded.
+
+So: **onnxruntime-node with the CoreML provider, resnet50, ratio 0.4.** The cost
+is a native module that needs rebuilding against Electron's ABI. That is a real
+maintenance tax and it was worth paying only because the alternative was a
+runtime that silently returns the wrong answer.
+
+Caveats on these numbers: medians over 24 frames (12 for the browser runs) of a
+single clip, one machine. Treat them as a ranking, not as a spec.
+
 ## 5. What is left, and it is not the algorithm
 
 Two artefacts survive all of the above, and neither is fixable by a better model:

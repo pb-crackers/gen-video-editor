@@ -58,10 +58,27 @@ would be a *second* lossy pass over something already right. The rule still
 holds for matte production (1d), where the segmentation helper decodes the file
 itself and does get it wrong. Full numbers in `matte.md` § 1's box.
 
-### 1d. Make the mattes — ⬜ open
+### 1d. Make the mattes — ⬜ open, architecture settled
 
-The remaining real work: producing the cut-outs. All of it already measured in
-`matte.md` § Recommended pipeline — do not re-derive.
+The remaining real work: producing the cut-outs.
+
+**Runtime decided by measurement** (`matte.md` § 4b): **onnxruntime-node with
+the CoreML provider, resnet50, ratio 0.4 — 5.42 fps.** The in-app route
+(onnxruntime-web) was spiked first and rejected: its **WebGPU backend returns a
+wrong matte** — 9% coverage where 43% is correct — and is no faster than wasm,
+so the reason to prefer in-app evaporated. wasm is correct but slower than
+node+CoreML on the better model.
+
+Accepted cost: a native module that needs rebuilding against Electron's ABI.
+
+Verified in the spike: the model contract is `src, r1i..r4i, downsample_ratio`
+→ `fgr, pha, r1o..r4o`; `downsample_ratio` must be **rank 1, not a scalar**;
+recurrent state seeds as `[1,1,1,1]` and the model grows it on frame one. Thread
+`r*o` into the next frame's `r*i` — getting that wrong is invisible on a single
+still, which is why the spike ran 24 consecutive frames.
+
+The rest is already measured in `matte.md` § Recommended pipeline — do not
+re-derive.
 
 1. Tone-map HDR → BT.709 **before segmenting**. Not for colour — for the matte
    itself, because RVM and Vision are trained on sRGB.
