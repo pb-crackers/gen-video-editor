@@ -53,8 +53,11 @@ Where this is, what was decided, and what bites. Read `docs/matte.md` and
   which now gets `alpha: true`. The editor's live preview runs `realtime` →
   `VideoBuffer`, which is hand-rolled and still drops alpha. A matte therefore
   looks wrong on screen and correct in the export. See `docs/matte.md` § 1.
-- **Source footage is HDR (BT.2020/HLG) and nothing tone-maps it** → desaturated
-  skin. Affects directors-cut today. Fix is 1.83× saturation. See `docs/matte.md`.
+- **Source footage is HDR (BT.2020/HLG), and this engine handles it correctly** —
+  measured within 5% of a proper `ffmpeg` tone-map, 1.64× the naive decode. Do
+  **not** pre-tone-map footage before mounting; that is a second lossy pass. The
+  washed-out skin is real but belongs to naive decoders — including the
+  segmentation helper, so tone-map before *segmenting*. See `docs/matte.md` § 1.
 - **`whisper-cli` exits 0 when it cannot read the audio**, and its bundled
   miniaudio has no Opus support — feed it WAV, and check the output file exists.
 - **`dapi node render` defaults to `resolution: 1080` meaning height**, so a

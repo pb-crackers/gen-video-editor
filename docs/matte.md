@@ -10,27 +10,48 @@ Source under test: 1080×1920, 30 fps, HEVC — **BT.2020 primaries, HLG transfe
 
 ---
 
-> ## ⚠ Fix the colour first
+> ## ⚠ Tone-map before you segment — but the renderer is already fine
 >
-> **The footage is HDR and nothing in the chain tone-maps it.** BT.2020 values
-> get rendered as BT.709, which reads as **washed-out, desaturated skin**. It is
-> not a matte defect and no model change will fix it.
+> **Corrected 2026-08-13.** The original note here said nothing in the chain
+> tone-maps the HDR source. That is true of a naive `ffmpeg` decode and it is
+> **not** true of this engine, which was never actually measured before.
+>
+> Measured on the camera original (`hev1.2`, BT.2020/HLG, 10-bit, 1080×1920) at
+> t=16s, mean HSV saturation over the frame:
+>
+> | decode | saturation | vs naive |
+> | --- | --- | --- |
+> | `ffmpeg`, no colour filters | 0.2129 | 1.00× |
+> | `ffmpeg`, tone-mapped (below) | 0.3330 | 1.56× |
+> | **this engine** (`dapi media grab`) | **0.3483** | **1.64×** |
+>
+> The engine lands within **5%** of the correct tone-map and nowhere near the
+> naive decode. Chrome applies the HLG→SDR conversion from the track's colour
+> metadata, so **A-roll renders correctly with no work**. The washed-out skin is
+> a real artefact of decoding naively — it is just not what this renderer does.
+>
+> **Where it still bites: anything that decodes the source outside the engine.**
+> The segmentation helper (Vision, RVM) reads the file itself, gets the naive
+> result, and hands HDR-ish values to models trained on sRGB — degrading the
+> matte, not just its colour. So the rule survives in its original form for the
+> one step that motivated it:
 >
 > ```sh
 > ffmpeg -i in.mp4 \
 >   -vf "zscale=t=linear:npl=100,tonemap=hable:desat=0,\
-> zscale=p=bt709:t=bt709:m=bt709:r=tv,format=yuv420p" \
+> zscale=p=bt709:t=bt709:m=bt709:r=tv" \
+>   -pix_fmt yuv420p \
 >   -color_primaries bt709 -color_trc bt709 -colorspace bt709 out.mp4
 > ```
 >
-> Measured effect: **1.83× saturation restored**.
+> Tone-map before segmenting. Do **not** tone-map before mounting — the engine
+> already did it, and doing it twice is a second lossy pass for nothing.
 >
-> This applies to **every matte already produced from HDR footage**, in this fork
-> and in directors-cut — the segmentation helper decodes naively and the
-> composite inherits it. It also degrades the matte itself, because Vision and
-> RVM are both trained on sRGB and are currently being handed HDR-ish values.
->
-> Tone-map before segmenting, not after. Everything downstream improves for free.
+> Two notes on that command. The original carried `format=yuv420p` inside `-vf`;
+> Remotion's bundled ffmpeg is built `--disable-filters` with an allow-list that
+> has no `format`, so it is `-pix_fmt` here instead. And the earlier **1.83×**
+> figure is the same effect measured on a different frame — direction and order
+> of magnitude agree, the exact number does not transfer.
 
 ---
 
@@ -88,21 +109,23 @@ The single-texture limit on `shaderPaint` still rules out pairing a colour video
 with a separate luma matte, and the image sequence is still the fallback if a
 codec ever turns up that mediabunny cannot demux.
 
-## 2. The colour was wrong, and it is wrong upstream too
+## 2. The colour, and who actually gets it wrong
 
-Nothing in the chain tone-maps the HDR source. BT.2020 values rendered as BT.709
-read **desaturated** — this is the washed-out skin, not a matte defect.
+The source is BT.2020 primaries / HLG transfer / 10-bit. Decoded naively it
+reads **desaturated and milky** — the washed-out skin. Decoded with the colour
+metadata honoured, it reads correctly.
 
-Correcting it (`zscale=t=linear,tonemap=hable,zscale=p=bt709:t=bt709:m=bt709`)
-restores **1.83× the saturation**.
+**This engine honours it** (measured; see the box above). What does not:
 
-Two consequences worth stating plainly:
+- **The segmentation helper.** Vision and RVM read the source file directly.
+  Both are trained on sRGB, so naive HDR-ish values degrade the matte itself,
+  not just its colour. Tone-map before segmenting.
+- **Any `ffmpeg` command without explicit colour filters**, which is how the
+  original finding was produced.
 
-- Every matte produced from HDR footage so far carries this.
-- Both Vision and RVM are trained on sRGB, so feeding them HDR-ish values
-  degrades the matte itself, not just its colour.
-
-Tone-map first. Everything downstream gets better for free.
+So the fix moved rather than disappeared: it belongs in matte production, not in
+the render path. Tone-mapping the source before mounting would now be a second
+lossy pass over something already correct.
 
 ## 3. Temporal filtering: median beats EMA
 

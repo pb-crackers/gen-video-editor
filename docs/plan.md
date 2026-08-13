@@ -16,15 +16,13 @@ addressing rule.
 
 ## 1. The matte
 
-**Graphics behind the speaker.** The engine composites a VP9-alpha WebM as an
-opaque black rectangle — the cut-out is correct, the alpha plane is discarded
-(`matte.md` § 1). Until that is fixed the effect is unavailable, and it is the
-effect the whole thing is for.
+**Graphics behind the speaker.** The effect the whole thing is for.
 
-First because it is both the highest value and the biggest unknown. The decoder
-work could be a day or a week and nobody knows which yet. Find out before
-sequencing anything behind it. It is also cleanly separable — a hardcoded test
-scene proves alpha works, with no layout system needed.
+First because it was both the highest value and the biggest unknown. That paid
+off in an unexpected direction: two of the three sub-tasks turned out to be
+much smaller than the notes claimed, because neither had been measured against
+*this* engine — only against the Remotion pipeline the findings came from.
+Check the premise on the thing in front of you before building for it.
 
 ### 1a. Decode the alpha — ✅ done, output path
 
@@ -48,15 +46,25 @@ through transparent pixels.
 Lower priority than it looks: the agent's loop is `mount` → `capture`, and
 `capture` is on the fixed path.
 
-### 1c. The production pipeline — ⬜ open
+### 1c. Tone-map the render path — ✅ not needed, measured
 
-Making the mattes themselves (`matte.md` § Recommended pipeline, all of it
-already measured — do not re-derive):
+**The engine already tone-maps HLG correctly.** Measured three ways on the
+camera original at t=16s: naive `ffmpeg` 0.2129 saturation, correct tone-map
+0.3330, this engine **0.3483** — within 5% of correct and 1.64× the naive
+decode. Chrome applies the conversion from the track's colour metadata.
 
-1. Tone-map HDR → BT.709 **first**. The source is BT.2020/HLG and nothing
-   tone-maps it; this is the washed-out skin, and it degrades the matte itself
-   because RVM and Vision are both trained on sRGB. Measured: **1.83×
-   saturation restored**.
+So there is nothing to build here, and tone-mapping the source before mounting
+would be a *second* lossy pass over something already right. The rule still
+holds for matte production (1d), where the segmentation helper decodes the file
+itself and does get it wrong. Full numbers in `matte.md` § 1's box.
+
+### 1d. Make the mattes — ⬜ open
+
+The remaining real work: producing the cut-outs. All of it already measured in
+`matte.md` § Recommended pipeline — do not re-derive.
+
+1. Tone-map HDR → BT.709 **before segmenting**. Not for colour — for the matte
+   itself, because RVM and Vision are trained on sRGB.
 2. RVM resnet50, `downsample_ratio` **0.4**. Not 1.0 — that is 5.6 hours for a
    2-minute video and buys 1.5 points of quality.
 3. Composite from RVM's **`fgr`**, never the raw frame. The raw frame is what
@@ -159,6 +167,13 @@ graphics, without being told the mechanics in the prompt.
 
 ## Not on the path, but true
 
+- **There is no `ffmpeg` on this machine.** The only one is Remotion's bundled
+  binary in directors-cut, which is the dependency this fork exists to escape.
+  It runs standalone with `DYLD_LIBRARY_PATH` set to its own directory, and it
+  does carry `zscale`/`tonemap` (libzimg) — but it is built `--disable-filters`
+  with an allow-list, so common filters like `format` are simply absent. Matte
+  production (1d) needs a real ffmpeg. The whisper.ts find-or-install pattern is
+  the precedent to follow.
 - **genai is still hosted and paid.** Image, video and audio generation route
   through a paid service; transcription is the part that was made local. Not
   blocking — a talking-head cut needs none of it — but goal #1 is not fully met
