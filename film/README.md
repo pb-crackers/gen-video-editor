@@ -11,6 +11,7 @@ dapi mount film/demo.tsx
 | [schema.ts](schema.ts) | The contract — ported from directors-cut, deliberately partial |
 | [compile.tsx](compile.tsx) | config → JSX, and the addressing rule |
 | [primitives/](primitives/) | The graphics a config can ask for |
+| [primitives/frame.tsx](primitives/frame.tsx) | The shared card, type scale and entrance |
 | [demo.json](demo.json) | A real config |
 | [demo.tsx](demo.tsx) | `compileReel(parseReel(config))` — the whole mount |
 
@@ -52,7 +53,26 @@ but is not ported here yet. Implemented: none, stat.
 ```
 
 Adding a kind is mechanical — a union member in `schema.ts`, a primitive, a
-branch in `compile.tsx`.
+branch in `compile.tsx`. Implemented so far: `none`, `stat`, `title`, `bullets`.
+
+## How the graphics are drawn
+
+Primitives are `<html>` blocks: real markup and CSS, drawn into the canvas. That
+is a deliberate choice for a **library the agent edits per video**. A model can
+change padding or a font size in CSS reliably; asking it to keep imperative
+canvas draw calls consistent after a size change is a far worse bet. It also
+keeps the designs that were already reviewed, instead of redesigning them under
+cover of porting.
+
+`<html>` depends on an experimental Chromium flag the desktop app enables, so
+graphics only draw where the app runs. That is a constraint on the **renderer**,
+not on the product — a browser UI can still be the control surface and show
+rendered frames.
+
+The exception is anything that needs an actual line: diagram connectors,
+sequence arrows, leader lines. There is no path or SVG element here, so those
+go through `<surface>`, which hands you a canvas to draw into. The pure geometry
+that computes where the lines go ports across unchanged.
 
 ## What `parseReel` catches before anything renders
 

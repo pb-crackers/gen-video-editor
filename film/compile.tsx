@@ -25,6 +25,8 @@ import { For } from "solid-js";
 
 import { assertRenderable, type Reel, type Segment } from "./schema";
 import { Stat } from "./primitives/stat";
+import { Title } from "./primitives/title";
+import { Bullets } from "./primitives/bullets";
 
 /** The name every segment node carries. The differ's only handle on it. */
 export const segmentNodeName = (id: string) => `seg:${id}`;
@@ -44,6 +46,26 @@ function SegmentGraphic(props: { segment: Segment; reel: Reel }) {
 
   return (
     <>
+      {canvas().kind === "title" ? (
+        <Title
+          name={segmentNodeName(seg().id)}
+          start={start()}
+          end={end()}
+          theme={props.reel.theme}
+          {...(canvas() as Extract<Segment["canvas"], { kind: "title" }>)}
+        />
+      ) : null}
+
+      {canvas().kind === "bullets" ? (
+        <Bullets
+          name={segmentNodeName(seg().id)}
+          start={start()}
+          end={end()}
+          theme={props.reel.theme}
+          {...(canvas() as Extract<Segment["canvas"], { kind: "bullets" }>)}
+        />
+      ) : null}
+
       {canvas().kind === "stat" ? (
         <Stat
           name={segmentNodeName(seg().id)}

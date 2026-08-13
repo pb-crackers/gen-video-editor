@@ -11,7 +11,7 @@
  * fifteen canvas kinds, window chromes, surfaces, anchors and annotations. Most
  * of those describe primitives this repo has no renderer for, and a schema that
  * accepts a config nothing can draw is worse than no schema at all. So the
- * envelope is faithful, `stat` is real, and every other kind is declared in
+ * envelope is faithful, the ported kinds are real, and every other kind is declared in
  * `PLANNED_KINDS` and refused by name until someone ports it.
  *
  * The one intentional divergence from upstream: `zColor` from
@@ -25,14 +25,14 @@ import { z } from "zod";
 export const SEGMENT_ID_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
 /** Canvas kinds this repo can actually draw. */
-export const IMPLEMENTED_KINDS = ["none", "stat"] as const;
+export const IMPLEMENTED_KINDS = ["none", "stat", "title", "bullets"] as const;
 
 /**
  * Kinds directors-cut has and this repo does not, yet. Listed so a config that
  * uses one fails with a sentence naming it rather than rendering an empty frame.
  */
 export const PLANNED_KINDS = [
-  "title", "bullets", "code", "diagram", "sequence", "compare",
+  "code", "diagram", "sequence", "compare",
   "repo", "dashboard", "landing", "stack", "image", "screencast", "custom",
 ] as const;
 
@@ -54,6 +54,34 @@ export const CanvasSchema = z.discriminatedUnion("kind", [
     sublabel: z.string().optional(),
     /** Count up from zero. Only works when `value` starts with a number. */
     countUp: z.boolean().default(true),
+  }),
+  /** A statement card — the hook, and section breaks. */
+  z.object({
+    ...BaseCanvas,
+    kind: z.literal("title"),
+    title: z.string(),
+    subtitle: z.string().optional(),
+  }),
+
+  /** Up to four lines that assemble as they are spoken. */
+  z.object({
+    ...BaseCanvas,
+    kind: z.literal("bullets"),
+    title: z.string().optional(),
+    items: z
+      .array(
+        z.object({
+          text: z.string(),
+          /**
+           * When this line should appear, reel-absolute. Copy it off the
+           * transcript entry for the word it belongs to; omit it and the lines
+           * spread evenly. A list on a timer fights the voice.
+           */
+          atMs: z.number().optional(),
+        }),
+      )
+      .min(1)
+      .max(4),
   }),
 ]);
 
@@ -97,6 +125,7 @@ export const ThemeSchema = z.object({
   accent: z.string().default("#FFB627"),
   ink: z.string().default("#FFFFFF"),
   card: z.string().default("rgba(12,14,18,.86)"),
+  muted: z.string().default("rgba(255,255,255,.62)"),
 });
 export type Theme = z.infer<typeof ThemeSchema>;
 

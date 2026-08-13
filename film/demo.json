@@ -3,6 +3,18 @@
   "source": "UkLW",
   "segments": [
     {
+      "id": "hook",
+      "startMs": 500,
+      "endMs": 3700,
+      "note": "welcome back to part three of building my own AI video editing software",
+      "canvas": {
+        "kind": "title",
+        "title": "Building my own AI video editor",
+        "subtitle": "Part 3 \u2014 phases six and seven",
+        "eyebrow": "DEV LOG"
+      }
+    },
+    {
       "id": "phases-shipped",
       "startMs": 14900,
       "endMs": 20400,
@@ -27,6 +39,31 @@
       }
     },
     {
+      "id": "next-up",
+      "startMs": 93600,
+      "endMs": 98400,
+      "note": "remove dead air, add B-roll, create and edit polls",
+      "canvas": {
+        "kind": "bullets",
+        "title": "Next up",
+        "eyebrow": "ROADMAP",
+        "items": [
+          {
+            "text": "Remove dead air",
+            "atMs": 94270
+          },
+          {
+            "text": "Add B-roll",
+            "atMs": 94960
+          },
+          {
+            "text": "Create + edit polls",
+            "atMs": 96400
+          }
+        ]
+      }
+    },
+    {
       "id": "hours-total",
       "startMs": 115000,
       "endMs": 121400,
@@ -38,5 +75,11 @@
         "sublabel": "total \u2014 built between shifts"
       }
     }
-  ]
+  ],
+  "theme": {
+    "accent": "#FFB627",
+    "ink": "#FFFFFF",
+    "card": "rgba(12,14,18,.86)",
+    "muted": "rgba(255,255,255,.62)"
+  }
 }
