@@ -247,11 +247,40 @@ Also worth knowing: a harsh, saturated test backdrop exaggerates every one of
 these. Against the dark textured plate the effect actually uses, the same matte
 reads cleanly. Judge mattes against the backdrop they will ship on.
 
-## Recommended pipeline
+## Recommended pipeline — implemented
 
-1. Tone-map HDR → BT.709 **first**.
-2. RVM resnet50, `downsample_ratio` 0.4, composite from `fgr`.
-3. Despill.
-4. Carry as an alpha image sequence until the decoder learns VP9 alpha.
+`apps/desktop/src/matte.ts`. The image-sequence fallback is gone: § 1 taught the
+decoder VP9 alpha, so a matte is one file again.
+
+1. Tone-map HDR → BT.709 **first**, and only here.
+2. RVM resnet50, `downsample_ratio` 0.4, onnxruntime-node on CoreML.
+3. Composite from `fgr`. Despill.
+4. Encode VP9 + alpha straight out, no intermediate on disk.
+
+ffmpeg decodes into the process and a second ffmpeg encodes out of it, both over
+pipes, because two minutes of 1080×1920 raw frames is ~21 GB of intermediate
+worth nothing once encoded.
+
+**`-auto-alt-ref 0` is required on the encode.** libvpx-vp9's alt-ref frames and
+the alpha side-channel are mutually exclusive, and with alt-ref on the alpha is
+**silently dropped** — the encode succeeds and the matte is simply opaque.
+
+### End-to-end speed is not inference speed
+
+| | fps | 2 min of 35 fps footage |
+| --- | --- | --- |
+| inference alone (§ 4b) | 5.42 | ~13 min |
+| **whole pipeline** | **2.30** | **~31 min** |
+
+Measured over 48 frames at 1080×1920. The gap is everything that is not the
+model: RGB→planar-float conversion, RGBA packing, and above all the VP9 encode,
+which at this resolution is the dominant cost. Quote the 2.30 figure to anyone
+asking how long a matte takes; 5.42 is a component benchmark and will
+disappoint. Throughput was still climbing at frame 48 (2.02 → 2.62), so the
+steady-state number is somewhat better than 2.30 and has not been measured over
+a full clip.
+
+Untried, in rough order of expected payoff: `-cpu-used`/`-deadline` on the
+encoder, moving the pixel loops off the main thread, and batching.
 
 If Vision is kept as the macOS fast path, swap its EMA for median-5.

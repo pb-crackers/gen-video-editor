@@ -58,7 +58,23 @@ would be a *second* lossy pass over something already right. The rule still
 holds for matte production (1d), where the segmentation helper decodes the file
 itself and does get it wrong. Full numbers in `matte.md` § 1's box.
 
-### 1d. Make the mattes — ⬜ open, architecture settled
+### 1d. Make the mattes — ✅ pipeline works, ⬜ not yet wired
+
+`apps/desktop/src/matte.ts` produces a VP9+alpha WebM from a source clip:
+tone-map → RVM resnet50 on CoreML → despill → encode, streamed over pipes with
+nothing staged on disk. Verified end to end — a matte it generated was mounted
+and composited by this engine, graphic behind the subject, clean edges.
+
+**Speed: 2.30 fps end to end**, ~31 min for a 2-minute clip. Not the 5.42 fps of
+§ 4b, which was inference alone; the VP9 encode dominates. See `matte.md`.
+
+**Still to wire:** the module is reachable from nothing. It needs an IPC channel
+in `main.ts` + `main-channels.ts` (the `WHISPER_*` trio is the template) and
+then a CLI verb. Note the installed `dapi` is a Homebrew binary, so a
+`dapi media matte` command is not just an edit to `apps/cli`.
+
+The reasoning that settled the architecture, kept because it is the expensive
+part:
 
 The remaining real work: producing the cut-outs.
 

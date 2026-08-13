@@ -340,3 +340,52 @@ export async function runFfmpeg(
 /** The app's home for anything ffmpeg is asked to write. */
 export const ffmpegWorkDir = async () =>
   path.join((await electron()).app.getPath("userData"), "ffmpeg-work");
+
+export type MediaInfo = { width: number; height: number; fps: number; durationSec: number };
+
+/**
+ * Dimensions, frame rate and duration of a file.
+ *
+ * `ffprobe` ships alongside `ffmpeg` in every build we accept, so it is
+ * resolved as a sibling rather than discovered separately — the capable ffmpeg
+ * has already been chosen by then, and picking a *different* build's ffprobe
+ * would be how the two disagree about a file.
+ */
+export async function probeMedia(
+  file: string,
+  opts: { interactive?: boolean } = {},
+): Promise<MediaInfo> {
+  const status = await ensureFfmpeg(opts);
+  const ffprobe = path.join(path.dirname(status.binary!), "ffprobe");
+
+  const json = await new Promise<string>((resolve, reject) => {
+    execFile(
+      ffprobe,
+      ["-v", "error", "-select_streams", "v:0", "-show_entries",
+       "stream=width,height,avg_frame_rate:format=duration", "-of", "json", file],
+      { maxBuffer: 1 << 20 },
+      (err, stdout) => (err ? reject(err) : resolve(stdout)),
+    );
+  });
+
+  const parsed = JSON.parse(json) as {
+    streams?: Array<{ width?: number; height?: number; avg_frame_rate?: string }>;
+    format?: { duration?: string };
+  };
+  const stream = parsed.streams?.[0];
+  if (!stream?.width || !stream?.height) throw new Error(`No video stream in ${path.basename(file)}`);
+
+  // avg_frame_rate is a rational ("30000/1001"), and these files are routinely
+  // not integer-rate — the matte has to carry the source's real rate or it
+  // drifts against the footage it was cut from.
+  const [num, den] = (stream.avg_frame_rate ?? "0/1").split("/").map(Number);
+  const fps = den ? num / den : 0;
+  if (!fps) throw new Error(`Could not read a frame rate from ${path.basename(file)}`);
+
+  return {
+    width: stream.width,
+    height: stream.height,
+    fps,
+    durationSec: Number(parsed.format?.duration ?? 0),
+  };
+}
