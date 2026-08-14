@@ -180,7 +180,7 @@ async function streamBlobToDir(blob: Blob, dir: string, fileName: string): Promi
   throw new Error(`Could not find a free file name for "${fileName}" in ${base}.`);
 }
 
-async function streamBlobToFile(blob: Blob, path: string): Promise<string> {
+export async function streamBlobToFile(blob: Blob, path: string): Promise<string> {
   const handle = new ElectronWritableFileHandle(path);
   await pumpBlob(blob, await handle.createWritable(), handle);
   return path;

@@ -7,6 +7,8 @@ import { ElectronFileHandle } from '@/lib/electron-file-handle';
 import { pickInformativeTimes } from './frame-triage';
 import { trpc } from '@/lib/trpc';
 import { transcribeAsset } from '@/lib/transcribe';
+import { generateMatte } from '@/lib/matte';
+import { streamBlobToFile } from './assets';
 import { filmstripAsset, waveformAsset, describeFileAsset, getAssetFile, formatTimecode, composeSheet, planSheet, planSheetSizes, sheetTimecode } from '@/components/engine';
 import { assert } from '@/utils';
 import {
@@ -17,7 +19,7 @@ import {
 
 import type { Engine } from "@/components/engine";
 import type { Asset } from "@/components/engine/db";
-import type { MediaListenRequest, MediaListenResult, MediaFrameRequest, MediaFrameResult, TimecodedImage, MediaProbeRequest, AssetRef, MediaTranscribeRequest, MediaTranscribeResult, MediaFilmstripRequest, MediaFilmstripResult, MediaWaveformRequest, MediaWaveformResult, TranscriptSegment } from "@diffusionstudio/cli/channels";
+import type { MediaListenRequest, MediaListenResult, MediaFrameRequest, MediaFrameResult, TimecodedImage, MediaProbeRequest, AssetRef, MediaTranscribeRequest, MediaTranscribeResult, MediaFilmstripRequest, MediaFilmstripResult, MediaWaveformRequest, MediaWaveformResult, TranscriptSegment, MediaMatteRequest, MediaMatteResult } from "@diffusionstudio/cli/channels";
 import type { Accessor } from "solid-js";
 
 /**
@@ -267,6 +269,39 @@ export function handleMediaTranscribe(engine: Accessor<Engine>) {
     }
 
     return { segments: transcript };
+  };
+}
+
+export function handleMediaMatte(engine: Accessor<Engine>) {
+  return async (req: MediaMatteRequest): Promise<MediaMatteResult> => {
+    const { world } = engine();
+    const asset = await resolveAssetRef(world, req);
+    assert(asset.type === "VIDEO", `Asset ${asset.id} is not a video asset.`);
+
+    // A path already names a file the main process can open. An asset id names
+    // bytes in OPFS that it cannot, so those get staged to disk first — pushing
+    // a quarter-gigabyte through IPC to reach a process that could have opened
+    // the file is not a trade.
+    let input: string;
+    let staged: string | null = null;
+    if ("path" in req) {
+      input = req.path;
+    } else {
+      staged = `${req.output}.source`;
+      input = await streamBlobToFile(await getAssetFile(asset), staged);
+    }
+
+    const result = await generateMatte({
+      input,
+      output: req.output,
+      model: req.model,
+      ratio: req.ratio,
+      despill: req.despill,
+      startSec: req.startSec,
+      maxFrames: req.maxFrames,
+      deleteInputAfter: staged !== null,
+    });
+    return { path: req.output, ...result };
   };
 }
 

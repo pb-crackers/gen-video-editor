@@ -11,7 +11,7 @@ import { hasHostedApi } from '@/lib/trpc';
 import { t, q, m, q0, m0 } from "@/lib/cli-rpc";
 import { handleContextGet } from "./context";
 import { handleAssetsAdd, handleAssetsList, handleAssetTree, handleAssetsDelete, handleAssetsMove, handleAssetsExport } from "./assets";
-import { handleMediaProbe, handleMediaFrame, handleMediaTranscribe, handleMediaFilmstrip, handleMediaWaveform, handleMediaListen } from "./media";
+import { handleMediaProbe, handleMediaFrame, handleMediaTranscribe, handleMediaMatte, handleMediaFilmstrip, handleMediaWaveform, handleMediaListen } from "./media";
 import { handleFoldersList, handleFolderCreate, handleFolderRename, handleFoldersMove, handleFoldersDelete } from "./folders";
 import { handleSelectionFocus, handleSelectionList, handleSelectionSet } from "./selection";
 import { handleNodeList, handleNodeTree, handleNodeGrep, handleNodeCapture, handleNodeDelete, handleNodePatch, handleNodeDuplicate, handleNodeRender } from "./node";
@@ -128,6 +128,7 @@ function createAppRouter({ getEngine, getUser, requireAuth, setParams }: AppRout
       filmstrip: q(handleMediaFilmstrip(getEngine)),
       waveform: q(handleMediaWaveform(getEngine)),
       listen: q(requireAuth(handleMediaListen(getEngine))),
+      matte: m(handleMediaMatte(getEngine)),
     }),
     folder: t.router({
       list: q(handleFoldersList(getEngine)),

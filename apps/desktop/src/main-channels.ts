@@ -41,6 +41,9 @@ export const MAIN_CHANNELS = {
   WHISPER_STATUS: "whisper:status",
   WHISPER_INSTALL: "whisper:install",
   WHISPER_TRANSCRIBE: "whisper:transcribe",
+  MATTE_STATUS: "matte:status",
+  MATTE_INSTALL: "matte:install",
+  MATTE_GENERATE: "matte:generate",
 
   // Main→Renderer events
   AUTH_CALLBACK: "auth:callback",
@@ -48,6 +51,7 @@ export const MAIN_CHANNELS = {
   WINDOW_FULLSCREEN_CHANGE: "window:fullscreen-change",
   HEADLESS_MODE: "headless:mode",
   WHISPER_PROGRESS: "whisper:progress",
+  MATTE_PROGRESS: "matte:progress",
 } as const;
 
 /**
@@ -65,6 +69,55 @@ export type WhisperStatus = {
   modelName: string;
   installMethod: "homebrew" | "source" | null;
   missing: Array<"binary" | "model">;
+};
+
+/**
+ * Speaker mattes, served by RobustVideoMatting in the main process. Declared
+ * here for the same reason as the whisper types above.
+ */
+export type MatteModel = "resnet50" | "mobilenetv3";
+export type MatteStatus = { ready: boolean; model: string | null; modelName: MatteModel };
+export type MatteProgress = {
+  phase: string;
+  detail?: string;
+  ratio?: number;
+  frame?: number;
+  totalFrames?: number;
+};
+export type MatteRequest = {
+  /** Absolute path to the source clip. */
+  input: string;
+  /** Absolute path to write the VP9+alpha WebM to. */
+  output: string;
+  model?: MatteModel;
+  ratio?: number;
+  despill?: number;
+  /**
+   * Matte one beat rather than a whole clip. Most footage cuts away from the
+   * speaker, and those stretches cost full price for an empty result.
+   */
+  startSec?: number;
+  maxFrames?: number;
+  interactive?: boolean;
+  /**
+   * Delete `input` once the matte is written. Set only when the caller staged
+   * that file itself: an asset lives in OPFS, which main cannot read, so its
+   * bytes get written to disk first and are rubbish afterwards. Main does the
+   * deleting because main is the one that finishes with the file.
+   */
+  deleteInputAfter?: boolean;
+};
+export type MatteResult = {
+  frames: number;
+  seconds: number;
+  width: number;
+  height: number;
+  fps: number;
+  /**
+   * Mean share of the frame the subject occupies. Near zero means the footage
+   * has nobody in it over this range — a legitimate result, not a failure.
+   */
+  coverage: number;
 };
 
 export type MainChannel = (typeof MAIN_CHANNELS)[keyof typeof MAIN_CHANNELS];
@@ -109,6 +162,9 @@ export type MainRequestMap = {
     request: { audio: Uint8Array; extension?: string; model?: string; interactive?: boolean };
     response: WhisperSegment[];
   };
+  [MAIN_CHANNELS.MATTE_STATUS]: { request: { model?: MatteModel } | void; response: MatteStatus };
+  [MAIN_CHANNELS.MATTE_INSTALL]: { request: { model?: MatteModel } | void; response: MatteStatus };
+  [MAIN_CHANNELS.MATTE_GENERATE]: { request: MatteRequest; response: MatteResult };
 };
 export type MainRequestChannel = keyof MainRequestMap;
 
@@ -118,6 +174,7 @@ export type MainEventMap = {
   [MAIN_CHANNELS.WINDOW_FULLSCREEN_CHANGE]: { fullscreen: boolean };
   [MAIN_CHANNELS.HEADLESS_MODE]: { active: boolean };
   [MAIN_CHANNELS.WHISPER_PROGRESS]: WhisperProgress;
+  [MAIN_CHANNELS.MATTE_PROGRESS]: MatteProgress;
 };
 export type MainEventChannel = keyof MainEventMap;
 

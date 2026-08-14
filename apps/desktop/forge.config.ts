@@ -20,6 +20,15 @@ const config: ForgeConfig = {
     icon: './assets/icon',
     protocols: [{ name: 'Diffusion Studio', schemes: ['diffusion'] }],
     prune: false,
+    // NOTE: this allow-list carries no `node_modules`, which was correct while
+    // esbuild bundled every dependency into dist/main.js. It no longer is.
+    // `onnxruntime-node` loads a `.node` binary at runtime, so build:main marks
+    // it external and a packaged app must carry it — and npm hoists it to the
+    // REPO ROOT, not apps/desktop, so simply allow-listing a path here will not
+    // find it. It needs staging into this directory the way scripts/stage-cli.mjs
+    // stages the CLI, copying only the current platform's binary (the package is
+    // 259 MB across all platforms). Until then `dapi media matte` works in dev
+    // and will fail in a packaged build with "Cannot find module".
     ignore: (path) =>
       path !== '' &&
       path !== '/package.json' &&

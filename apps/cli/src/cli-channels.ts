@@ -145,6 +145,35 @@ export type TranscriptWord = { text: string; start: number; end: number };
 export type TranscriptSegment = { text: string; words: TranscriptWord[] };
 export type MediaTranscribeResult = { segments: TranscriptSegment[] };
 
+/**
+ * Cut the speaker out of a clip. Slow and local: RobustVideoMatting runs in the
+ * main process and a two-minute clip is roughly half an hour of inference, so
+ * `startSec`/`maxFrames` exist to matte one beat rather than a whole file.
+ */
+export type MediaMatteRequest = AssetRef & {
+  /** Absolute path to write the VP9+alpha WebM to. */
+  output: string;
+  model?: "resnet50" | "mobilenetv3";
+  ratio?: number;
+  despill?: number;
+  startSec?: number;
+  maxFrames?: number;
+};
+export type MediaMatteResult = {
+  path: string;
+  frames: number;
+  seconds: number;
+  width: number;
+  height: number;
+  fps: number;
+  /**
+   * Share of frames with a subject in them. Zero is a legitimate answer — the
+   * footage may simply cut away — so it is reported rather than treated as an
+   * error.
+   */
+  coverage: number;
+};
+
 export type MediaFilmstripRequest = AssetRef & { start?: number; end?: number; scale?: number };
 export type MediaFilmstripResult = { base64: string };
 

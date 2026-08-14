@@ -580,6 +580,64 @@ async function mediaTranscribe(ref: string): Promise<void> {
   }
 }
 
+type MediaMatteOptions = {
+  output: string;
+  start?: string;
+  frames?: string;
+  model?: string;
+  ratio?: string;
+  despill?: string;
+};
+
+async function mediaMatte(ref: string, opts: MediaMatteOptions): Promise<void> {
+  const target = resolveAssetRef(ref);
+  const startSec = opts.start !== undefined ? parseTimeArg(opts.start, "--start") : undefined;
+
+  if (opts.model !== undefined && opts.model !== "resnet50" && opts.model !== "mobilenetv3") {
+    console.error(`--model must be resnet50 or mobilenetv3, got "${opts.model}".`);
+    process.exit(1);
+  }
+  const ratio = opts.ratio !== undefined ? Number(opts.ratio) : undefined;
+  if (ratio !== undefined && (!Number.isFinite(ratio) || ratio <= 0 || ratio > 1)) {
+    console.error(`--ratio must be a number in (0, 1], got "${opts.ratio}".`);
+    process.exit(1);
+  }
+  const despill = opts.despill !== undefined ? Number(opts.despill) : undefined;
+  if (despill !== undefined && (!Number.isFinite(despill) || despill < 0 || despill > 1)) {
+    console.error(`--despill must be a number in [0, 1], got "${opts.despill}".`);
+    process.exit(1);
+  }
+  const maxFrames = opts.frames !== undefined ? Number(opts.frames) : undefined;
+  if (maxFrames !== undefined && (!Number.isInteger(maxFrames) || maxFrames < 1)) {
+    console.error(`--frames must be a positive whole number, got "${opts.frames}".`);
+    process.exit(1);
+  }
+
+  // No spinner: this runs for minutes and the main process pushes real frame
+  // counts, so a spinner would be the least informative thing on screen.
+  console.error("Matting… this is slow; progress appears in the app.");
+  try {
+    const result = await editor.media.matte.mutate({
+      ...target,
+      output: resolve(opts.output),
+      model: opts.model as "resnet50" | "mobilenetv3" | undefined,
+      ratio,
+      despill,
+      startSec,
+      maxFrames,
+    });
+    console.log(JSON.stringify(result));
+    if (result.coverage < 0.01) {
+      console.error(
+        `Note: coverage is ${(result.coverage * 100).toFixed(1)}% — there is no subject in this range. ` +
+          `Check --start/--frames against a shot that actually has the speaker in it.`,
+      );
+    }
+  } catch (e) {
+    handleSocketError(e);
+  }
+}
+
 type MediaListenOptions = { prompt?: string; start?: string; end?: string; keepVideo?: boolean };
 
 async function mediaListen(ref: string, opts: MediaListenOptions): Promise<void> {
@@ -1324,6 +1382,20 @@ media
   )
   .argument("<id|path>", "video or audio asset id, or a local file")
   .action((ref: string) => mediaTranscribe(ref));
+
+media
+  .command("matte")
+  .description(
+    `Cut the speaker out of a video so a graphic can sit BEHIND them, writing a VP9+alpha WebM (local render, no credits). Runs RobustVideoMatting on this machine; the model is downloaded once, on request. SLOW — roughly 2.5 frames a second at 1080x1920, so a two-minute clip is about half an hour. Matte one beat at a time with --start/--frames rather than a whole file: most footage cuts away from the speaker, and those stretches cost full price to produce an empty matte. Reports \`coverage\`, the share of the frame the subject occupies; a coverage near 0 means the footage has no speaker in it, which is an answer and not an error. Composite the result over a graphic and check it with \`film/matte-check.tsx\`.`,
+  )
+  .argument("<id|path>", "video asset id, or a local video file")
+  .requiredOption("-o, --output <file>", "path to write the VP9+alpha WebM to")
+  .option("-s, --start <time>", `where to begin in the source — seconds ("1.5"), frames ("45f"), or "MM:SS" (default: 0)`)
+  .option("-n, --frames <n>", "stop after this many frames (default: to the end of the clip)")
+  .option("-m, --model <name>", "resnet50 (default, better edges) or mobilenetv3 (faster, coarser)")
+  .option("-r, --ratio <n>", "downsample ratio for inference, 0.25-1.0; 0.4 is the measured knee (default: 0.4)")
+  .option("--despill <n>", "0 disables green-spill removal, 1 clamps green fully to the red/blue mean (default: 1)")
+  .action((ref: string, opts: MediaMatteOptions) => mediaMatte(ref, opts));
 
 media
   .command("grab")

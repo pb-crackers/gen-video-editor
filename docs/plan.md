@@ -68,10 +68,22 @@ and composited by this engine, graphic behind the subject, clean edges.
 **Speed: 2.30 fps end to end**, ~31 min for a 2-minute clip. Not the 5.42 fps of
 § 4b, which was inference alone; the VP9 encode dominates. See `matte.md`.
 
-**Still to wire:** the module is reachable from nothing. It needs an IPC channel
-in `main.ts` + `main-channels.ts` (the `WHISPER_*` trio is the template) and
-then a CLI verb. Note the installed `dapi` is a Homebrew binary, so a
-`dapi media matte` command is not just an edit to `apps/cli`.
+**Wired: `dapi media matte <id|path> -o out.webm [--start] [--frames]`.** CLI →
+tRPC → renderer → IPC → main → RVM → ffmpeg. A local path is passed straight
+through; an asset id is staged to disk first, because assets live in OPFS which
+the main process cannot read, and main deletes the staging copy afterwards.
+Reports `coverage` and warns when it is ~0, which is how you learn the range has
+no speaker in it rather than wondering why the matte is empty.
+
+(The earlier worry that `dapi` was an unmodifiable Homebrew binary was wrong:
+`/opt/homebrew/bin/dapi` is a symlink into `apps/cli/dist`.)
+
+**⬜ Packaging is not done.** `onnxruntime-node` cannot be bundled by esbuild —
+it loads a `.node` binary — so `build:main` marks it external. `forge.config.ts`
+ships no `node_modules`, and npm hoists the package to the repo root rather than
+`apps/desktop`, so it needs a stage script like `scripts/stage-cli.mjs`, copying
+only the current platform's binary (259 MB across all of them). Until that
+exists, matting works in dev and fails in a packaged build.
 
 The reasoning that settled the architecture, kept because it is the expensive
 part:

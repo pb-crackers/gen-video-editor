@@ -13,8 +13,9 @@ import { trackInstall } from "./analytics";
 import { setupAppMenu } from "./menu";
 import { mainBridge } from "./main-manager";
 import { MAIN_CHANNELS } from "./main-channels";
-import type { DeepLinkChannel, WhisperProgress } from "./main-channels";
+import type { DeepLinkChannel, WhisperProgress, MatteProgress } from "./main-channels";
 import { whisperStatus, installWhisper, transcribeAudio } from "./whisper";
+import { matteStatus, ensureMatteModel, generateMatte } from "./matte";
 import type { LogEntry } from "@diffusionstudio/cli/protocol";
 
 const DEV_URL = "http://localhost:5173";
@@ -268,6 +269,37 @@ if (app.requestSingleInstanceLock()) {
       onProgress: relayWhisperProgress,
     }),
   );
+  // Speaker mattes. Slow enough that progress is the difference between "working"
+  // and "hung": a 2-minute clip is ~30 minutes of inference, so every tenth frame
+  // is pushed as an event.
+  const relayMatteProgress = (progress: MatteProgress) => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainBridge.emit(mainWindow, MAIN_CHANNELS.MATTE_PROGRESS, progress);
+    }
+  };
+  mainBridge.handle(MAIN_CHANNELS.MATTE_STATUS, (req) => matteStatus(req?.model));
+  mainBridge.handle(MAIN_CHANNELS.MATTE_INSTALL, (req) =>
+    ensureMatteModel(req?.model, { onProgress: relayMatteProgress }),
+  );
+  mainBridge.handle(
+    MAIN_CHANNELS.MATTE_GENERATE,
+    async ({ input, output, interactive, deleteInputAfter, ...rest }) => {
+      try {
+        const { frames, seconds, coverage, info } = await generateMatte(input, output, {
+          ...rest,
+          // Headless has nobody to answer a dialog, so it fails with instructions.
+          interactive: interactive ?? !isHeadless(),
+          onProgress: relayMatteProgress,
+        });
+        return { frames, seconds, coverage, width: info.width, height: info.height, fps: info.fps };
+      } finally {
+        // Also on failure: a staged copy is worthless either way, and leaving
+        // quarter-gigabyte temporaries behind after an error is its own bug.
+        if (deleteInputAfter) await unlink(input).catch(() => {});
+      }
+    },
+  );
+
   mainBridge.handle(MAIN_CHANNELS.FILE_TRANSFER, ({ selector, absolutePath }) =>
     setFileInputFiles(selector, absolutePath),
   );

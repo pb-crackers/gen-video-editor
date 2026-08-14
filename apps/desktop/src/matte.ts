@@ -39,7 +39,11 @@ import { mkdir, rm, stat, copyFile } from "node:fs/promises";
 import path from "node:path";
 import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
-import ort from "onnxruntime-node";
+// Named imports, not a default import: onnxruntime-node is CJS with no
+// `default` export, and main.ts is bundled to CJS with this package external,
+// so `import ort from` resolves to undefined at runtime while typechecking
+// perfectly.
+import { InferenceSession, Tensor } from "onnxruntime-node";
 
 import { ensureFfmpeg, probeMedia, type MediaInfo } from "./ffmpeg";
 
@@ -227,7 +231,7 @@ function frameReader(stream: NodeJS.ReadableStream, size: number) {
  * declared type has to be the general `Tensor` — the outputs threaded back in
  * are not the same concrete type this returns.
  */
-const zeroState = (): ort.Tensor => new ort.Tensor("float32", new Float32Array(1), [1, 1, 1, 1]);
+const zeroState = (): Tensor => new Tensor("float32", new Float32Array(1), [1, 1, 1, 1]);
 
 export type MatteOptions = {
   model?: MatteModel;
@@ -258,7 +262,7 @@ export async function generateMatte(
   input: string,
   output: string,
   opts: MatteOptions = {},
-): Promise<{ frames: number; seconds: number; info: MediaInfo }> {
+): Promise<{ frames: number; seconds: number; coverage: number; info: MediaInfo }> {
   const modelName = opts.model ?? DEFAULT_MODEL;
   const ratioValue = opts.ratio ?? DEFAULT_RATIO;
   const despillAmount = opts.despill ?? 1;
@@ -274,7 +278,7 @@ export async function generateMatte(
   const totalFrames = opts.maxFrames ?? Math.max(1, Math.round(info.durationSec * fps));
 
   opts.onProgress?.({ phase: "Loading model", detail: `${modelName} @ ratio ${ratioValue}` });
-  const session = await ort.InferenceSession.create(model.model!, {
+  const session = await InferenceSession.create(model.model!, {
     // Measured: resnet50 goes 1.99 -> 5.42 fps under CoreML (§ 4b).
     executionProviders: ["coreml"],
   });
@@ -326,11 +330,12 @@ export async function generateMatte(
 
   const src = new Float32Array(3 * W * H);
   const rgba = Buffer.allocUnsafe(W * H * 4);
-  const ratio = new ort.Tensor("float32", new Float32Array([ratioValue]), [1]);
+  const ratio = new Tensor("float32", new Float32Array([ratioValue]), [1]);
   let [r1, r2, r3, r4] = [zeroState(), zeroState(), zeroState(), zeroState()];
 
   const started = Date.now();
   let frames = 0;
+  let coverageSum = 0;
   const px = W * H;
 
   try {
@@ -345,7 +350,7 @@ export async function generateMatte(
       }
 
       const out = await session.run({
-        src: new ort.Tensor("float32", src, [1, 3, H, W]),
+        src: new Tensor("float32", src, [1, 3, H, W]),
         r1i: r1, r2i: r2, r3i: r3, r4i: r4,
         // rank 1, not a scalar — the model rejects rank 0.
         downsample_ratio: ratio,
@@ -358,6 +363,7 @@ export async function generateMatte(
       const fgr = out.fgr.data as Float32Array;
       const pha = out.pha.data as Float32Array;
 
+      let covered = 0;
       for (let i = 0; i < px; i++) {
         const r = fgr[i] * 255;
         const g = fgr[px + i] * 255;
@@ -369,7 +375,9 @@ export async function generateMatte(
         rgba[o + 2] = b < 0 ? 0 : b > 255 ? 255 : b;
         const a = pha[i] * 255;
         rgba[o + 3] = a < 0 ? 0 : a > 255 ? 255 : a;
+        if (pha[i] > 0.5) covered++;
       }
+      coverageSum += covered / px;
 
       // Respect the encoder's backpressure; without this a long clip buys an
       // unbounded buffer in this process instead of a bounded one in ffmpeg.
@@ -400,6 +408,13 @@ export async function generateMatte(
   }
 
   const seconds = (Date.now() - started) / 1000;
-  opts.onProgress?.({ phase: "Done", detail: `${frames} frames in ${seconds.toFixed(1)}s` });
-  return { frames, seconds, info };
+  const coverage = coverageSum / frames;
+  opts.onProgress?.({
+    phase: "Done",
+    detail: `${frames} frames in ${seconds.toFixed(1)}s, ${(coverage * 100).toFixed(1)}% covered`,
+  });
+
+  // Reported, never thrown. Footage that cuts away from the speaker yields an
+  // empty matte, and that is the correct answer rather than a failure.
+  return { frames, seconds, coverage, info };
 }
