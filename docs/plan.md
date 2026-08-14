@@ -96,10 +96,8 @@ answer is *silent*: the ffmpeg capability parser, `missingCapabilities`,
 `frameReader`'s frame assembly and backpressure, `despill`, and the CLI's option
 validation. All mutation-checked against the source rather than the assertions.
 
-The reasoning that settled the architecture, kept because it is the expensive
-part:
-
-The remaining real work: producing the cut-outs.
+The reasoning that settled the architecture, kept because re-deriving it is the
+expensive part:
 
 **Runtime decided by measurement** (`matte.md` § 4b): **onnxruntime-node with
 the CoreML provider, resnet50, ratio 0.4 — 5.42 fps.** The in-app route
@@ -178,39 +176,67 @@ Traps already known: `dapi node render` defaults to `resolution: 1080` meaning
 
 ---
 
-## 3. Primitives: a floor, not a library
+## 3. The agent authors the graphics — decided 2026-08-14
 
-**The point is that the agent does not start from zero.** Not to reproduce
-directors-cut's fifteen kinds.
+**The config stays thin. The agent writes most graphics as components, directed
+and reviewed by the user.** This was the open question in the previous handoff
+and it is now settled, so the rest of this section is written against it.
 
-Third because it is the first thing that is safe to build once format is
-settled, and because the amount needed is smaller than it looks. Measured on a
-real 26-segment film: `title` and `stat` alone cover 14 of 26 segments, and
-`none` covers 7 more.
+directors-cut reached the same place from the other direction: *"This is the
+general case, not the escape hatch. The fifteen canvas kinds are a jump start
+for tech content; a component is how everything else gets drawn."*
 
-The kinds already here — `none`, `stat`, `title`, `bullets` — plus `code` and
-`image` is a reasonable floor. Stop there and see what is actually missing in
-use rather than porting a list.
+### What it changes
 
-**The more important half is `custom`.** From directors-cut's own director
-skill:
+- **`custom` goes first, not last.** It is currently in `PLANNED_KINDS` and
+  refused by name. It should be the next kind implemented, ahead of `code`,
+  `image` or anything else — every other kind is a convenience once this exists.
+- **The library becomes reference, not menu.** `stat`/`title`/`bullets` stop
+  being "what you may ask for" and become worked examples to copy. That is what
+  directors-cut's `library/` is for, and each file there is written to be copied
+  rather than imported.
+- **The differ is demoted again.** If content lives in TSX, changing a word is a
+  file edit and a re-mount, not a JSON patch. A config differ still guards
+  timing and structure; it no longer guards most of what a film says.
+- **Review moves to the picture.** Nobody reviews a config for whether a graphic
+  is good. The loop has to be mount → capture → look, and this fork is a good
+  host for it: no bundle, no registry regeneration, and a broken component costs
+  one mount instead of every film's render.
 
-> This is the general case, not the escape hatch. The fifteen canvas kinds are a
-> jump start for tech content; a component is how everything else gets drawn.
+### The risk, and what has to exist because of it
 
-A config names a component, the component is a file the agent writes. That is
-how the agent designs whole screens, B-roll frames and animations without a
-schema change for each one. This fork is a better host for it than Remotion was:
-no bundle, no registry regeneration, and a broken component costs one mount
-instead of every film's render.
+A fixed library enforced consistency for free. Agent-authored does not, and the
+failure is quiet: fifteen graphics that each look reasonable alone and do not
+look like one film together. Three things replace what the library was doing,
+and they should land **before** the skill tells the agent to author freely:
+
+1. **A contract for what a component is handed** — the resolved `format` (so it
+   is never portrait-only), the card box for its segment, the theme palette, and
+   its segment's reel-absolute start. directors-cut hands `palette`, `box` and
+   `segmentStartMs` for exactly these reasons; the `segmentStartMs` one is
+   subtle and worth stealing outright, because `useTicker` time is local and
+   every `atMs` in a config is reel-absolute, so a component that forgets to
+   subtract is right on the first beat and progressively wrong on every later
+   one. A single still proves nothing.
+2. **House rules that are checked, not advised.** A rule in prose is a rule the
+   agent skips under pressure. Candidates worth enforcing mechanically: colours
+   must come from the theme rather than hardcoded hex, geometry from the format
+   rather than literals, and the shared `entrance` rather than a bespoke one.
+3. **Reference components written to be copied**, with the constants at the top
+   where they are meant to be edited.
+
+### Still true from before
+
+The floor is smaller than it looks. On a real 26-segment film, `title` + `stat`
++ `none` covered 21 of 26. The remaining kinds are a convenience, not a blocker
+— which is the other reason `custom` outranks them.
 
 **Done when:** an agent can write a new `.tsx`, name it from a config, mount it
 and capture it — with no change to `schema.ts` and no build step.
 
-Traps already known: `<html>` clips its content and shadow blur clipping at the
-box edge leaves a visible seam — size boxes with headroom.
+Traps already known: `<html>` clips its content and shadow blur at the box edge
+leaves a visible seam — size boxes with headroom.
 
----
 
 ## 4. The skills
 

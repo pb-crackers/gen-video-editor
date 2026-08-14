@@ -139,12 +139,20 @@ Two things to carry in from this fork that upstream's skill cannot know:
 - `dapi media matte` exists, is slow, and should be run per segment.
 - A config names a `format`; landscape is real now.
 
-And one open design question worth deciding deliberately rather than inheriting:
-**does the config stay a closed schema with `custom` as one member, or become
-thin — timing, layout, component name — with nearly every graphic
-agent-authored?** directors-cut hedged and kept both. The first keeps a differ
-meaningful; the second is where "the agent designs whole screens" actually
-leads.
+**Decided 2026-08-14: the agent authors most graphics, directed and reviewed by
+the user.** The config stays thin — timing, layout, a component name. See
+`docs/plan.md` § 3, which is written against this and lists what it changes.
+
+The short version, because it reorders the work: **`custom` is now the next kind
+to implement, not the last.** The library stops being a menu and becomes worked
+examples to copy. And the thing a fixed library was silently providing —
+consistency — has to be replaced before the skill encourages free authoring: a
+contract for what a component is handed (format, card box, theme, the segment's
+reel-absolute start), house rules that are *checked* rather than advised, and
+reference components written to be copied.
+
+That has a direct consequence for the skill: `director` should teach the
+authoring loop and the review checklist, not a catalogue of canvas kinds.
 
 **Deferred, still right:** the differ (old config vs new → minimal `node patch`
 set). It protects an iterative edit loop that barely exists yet.
