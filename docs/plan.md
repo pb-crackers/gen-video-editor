@@ -225,6 +225,53 @@ and they should land **before** the skill tells the agent to author freely:
 3. **Reference components written to be copied**, with the constants at the top
    where they are meant to be edited.
 
+### What to steal from directors-cut, and what not to
+
+Surveyed 2026-08-14. The library is not in tension with authoring — **it is the
+baseline the agent reads before writing anything, and the thing that keeps
+fifteen bespoke graphics looking like one film.** directors-cut already built
+that, so port rather than reinvent.
+
+Inventory, with sizes, because the answer differs by tier:
+
+| | lines | verdict |
+| --- | --- | --- |
+| `src/components/canvas/CustomCanvas.tsx` | 333 | **port the mechanism** |
+| `library/` — PullQuote, Checklist, SignupPrompt, LibraryFixture | 547 | **port the lesson, rewrite the code** |
+| `src/lib/*.ts` (21 files, tests alongside) | 3,660 | **port on demand; mostly pure** |
+| `src/components/canvas/*.tsx` (15 kinds) | 5,710 | **do not port wholesale** |
+
+**The contract ports almost unchanged.** `CustomCanvasProps` is exactly three
+things — `palette`, `box`, `segmentStartMs` — and each is documented with the
+failure it prevents. Ours becomes `theme`, the card box from `format.ts`, the
+resolved `format`, and the segment start.
+
+**One good idea worth taking verbatim:** their `COMPONENT FAILED` card is
+deliberately *not* palette-derived, so a broken theme cannot hide a broken
+component, and the render **finishes** — the error arrives in the picture rather
+than as a stack trace naming nothing. Read `CustomCanvas.tsx` § the failure card
+before writing ours.
+
+**The reference components are pedagogical, and that is the part to copy.** Each
+one opens with "READ THIS FIRST IF YOU ARE WRITING YOUR OWN" and teaches a trap
+in its header. `Checklist.tsx` exists mainly to be the worked example of one
+line. Their code is React + Remotion and does not port; their *shape* — constants
+at the top, the lesson in the header, sized from the box rather than from frame
+constants — is what to reproduce.
+
+**What does NOT transfer, and would be wrong if copied blindly.** Their loudest
+warning is that `useCurrentFrame()` is sequence-relative, so `segmentStartMs`
+must be subtracted before comparing to a reel-absolute `atMs`. **This engine is
+the mirror image.** `useTicker().time()` is composition-absolute — `useLocalTime`
+subtracts the start precisely because it is not already local, and `bullets.tsx`
+computes `item.atMs / 1000 - props.start` for the same reason. So here, comparing
+ticker time to a reel-absolute `atMs` is natural and needs no subtraction; what
+needs it is "time since this graphic appeared".
+
+Same trap, opposite direction. Copy their sentence and it teaches the agent to
+subtract twice. *(Inferred from two call sites, not measured — verify against a
+mounted component before this goes in a skill.)*
+
 ### Still true from before
 
 The floor is smaller than it looks. On a real 26-segment film, `title` + `stat`

@@ -154,6 +154,15 @@ reference components written to be copied.
 That has a direct consequence for the skill: `director` should teach the
 authoring loop and the review checklist, not a catalogue of canvas kinds.
 
+**The library is not in tension with authoring** — it is the baseline the agent
+reads before writing anything new, and what keeps fifteen bespoke graphics
+looking like one film. directors-cut already built it, so port rather than
+reinvent: `docs/plan.md` § 3 has the survey, with sizes and a verdict per tier.
+The headline is that the contract and the reference components port well, the
+fifteen React canvas kinds do not port wholesale, and their loudest warning —
+subtract `segmentStartMs` because `useCurrentFrame()` is sequence-relative —
+is **inverted in this engine** and would teach the agent to subtract twice.
+
 **Deferred, still right:** the differ (old config vs new → minimal `node patch`
 set). It protects an iterative edit loop that barely exists yet.
 
