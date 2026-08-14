@@ -21,6 +21,11 @@
  */
 import { z } from "zod";
 
+import { FORMATS, type Format, type FormatName } from "./format";
+
+/** The format names a config may name, for zod's enum. */
+export const FORMAT_NAMES = Object.keys(FORMATS) as [FormatName, ...FormatName[]];
+
 /** Same shape as upstream: lowercase, hyphenated, path-safe, max 60. */
 export const SEGMENT_ID_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
@@ -133,13 +138,36 @@ export const ReelSchema = z.object({
   title: z.string().default("Untitled reel"),
   /** Asset id of the speaker footage, as `dapi asset add` reports it. */
   source: z.string(),
-  width: z.number().default(1080),
-  height: z.number().default(1920),
+  /**
+   * The frame. `portrait` is a reel, `landscape` is a YouTube video.
+   *
+   * Dimensions are **derived** from this rather than written alongside it —
+   * width and height that disagree with the format are how a graphic ends up
+   * positioned for the wrong frame while every number in the file looks
+   * plausible. See `film/format.ts`.
+   */
+  format: z.enum(FORMAT_NAMES).default("portrait"),
+  /**
+   * Never used, only checked.
+   *
+   * Kept in the schema so a config carrying dimensions — from directors-cut, or
+   * from an older version of this one — fails with a sentence instead of having
+   * them silently ignored. A file saying 1920×1080 while rendering portrait is
+   * the precise failure the `format` field exists to remove, and dropping these
+   * keys quietly would reintroduce it.
+   */
+  width: z.number().optional(),
+  height: z.number().optional(),
   segments: z.array(SegmentSchema).default([]),
   theme: ThemeSchema.default(ThemeSchema.parse({})),
 });
 
 export type Reel = z.infer<typeof ReelSchema>;
+
+/** The resolved frame for a parsed reel. Dimensions come from here, not the config. */
+export function reelFormat(reel: Reel): Format {
+  return FORMATS[reel.format];
+}
 
 /**
  * Parse and check the things zod cannot express on its own.
@@ -150,6 +178,22 @@ export type Reel = z.infer<typeof ReelSchema>;
  */
 export function parseReel(input: unknown): Reel {
   const parsed = ReelSchema.parse(input);
+
+  // Dimensions are derived from the format. If a config also states them, they
+  // have to agree — a mismatch means someone believes something about the frame
+  // that is not true, and every graphic would be placed for the other one.
+  const frame = FORMATS[parsed.format];
+  const stated = { width: parsed.width, height: parsed.height };
+  for (const axis of ["width", "height"] as const) {
+    const value = stated[axis];
+    if (value !== undefined && value !== frame[axis]) {
+      throw new Error(
+        `Reel says ${axis} ${value} but format "${parsed.format}" is ` +
+          `${frame.width}×${frame.height}. Drop the ${axis} or change the format — ` +
+          `dimensions are derived from the format, not set beside it.`,
+      );
+    }
+  }
 
   const seen = new Set<string>();
   for (const seg of parsed.segments) {

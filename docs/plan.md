@@ -133,24 +133,45 @@ right tool.
 
 ---
 
-## 2. Format: portrait and landscape
+## 2. Format: portrait and landscape — ✅ done
 
-**Reels and YouTube are both first-class, and the difference is not a width
-parameter.** `frame.tsx` hardcodes `CARD = { x: 70, y: 200, width: 940 }`. The
-type scale, caption placement and the whole graphic-band-over-speaker-band
-geometry are portrait assumptions.
+**Done:** the same config renders at 1080×1920 and 1920×1080, no primitive reads
+a hardcoded frame dimension, and `film/demo-landscape.tsx` is the same
+`demo.json` with one field changed.
 
-Second because it is blocking. Every primitive built before this decision bakes
-in portrait and gets rewritten after it. Doing it now is cheap; doing it later
-is a rewrite of the whole library.
+`film/format.ts` holds both frames, their safe areas and their card placement.
+The rule that made it cheap: **the card is the same size in both formats and
+only its placement changes**, because the whole type scale was tuned against a
+940px card rather than against the frame. Full reasoning in `film/README.md`.
 
-Landscape is not a variant of portrait. It is a different frame: the speaker is
-in a corner or absent, graphics run full-bleed, beats are longer, and structure
-is chapters rather than a 90-second arc.
+Verified: the portrait demo renders **pixel-identical** before and after — zero
+channel difference across the frame. Adding landscape moved nothing.
 
-**Done when:** the same config renders correctly at 1080×1920 and 1920×1080,
-with the primitives that exist, and no primitive reads a hardcoded frame
-dimension.
+Also fixed along the way:
+
+- **`stat` had grown its own private copy** of the four portrait numbers,
+  duplicated from `frame.tsx` and free to drift. It now measures its long-value
+  step-down against the real card width instead of a hardcoded 940.
+- **`film/` was typechecked by nothing.** No tsconfig covered it, so
+  `npm run check` walked past the schema, the compiler and every primitive.
+  `film/tsconfig.json` fixes it and caught a real scope error on its first run.
+- **Dimensions are derived, not stated.** A config whose `width`/`height`
+  disagrees with its format is refused by name.
+
+Two things deliberately left as they are, both pinned by tests so changing them
+is a decision rather than an accident:
+
+- Portrait's reviewed card runs **70px under the reels action rail**. The card
+  geometry is reviewed and shipping; the ~140px rail inset is judgement. Both
+  cannot be true, so the overlap is asserted exactly as it is.
+- Safe insets are **judgement, not measurement** — sensible values for where
+  platform chrome sits today, in one table so there is a single place to correct
+  them.
+
+Still portrait-only in the wider design, and worth knowing before landscape work
+goes further: caption placement, punch-in and the `split`/`backdrop` layouts are
+all still portrait ideas. Landscape long-form also wants chapters rather than a
+90-second arc — that is structure, not geometry, and it is not addressed here.
 
 Traps already known: `dapi node render` defaults to `resolution: 1080` meaning
 **height**, so a vertical composition silently exports 608×1080 — pass `1920`.
