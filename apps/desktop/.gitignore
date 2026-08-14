@@ -2,3 +2,4 @@ dist
 web
 out
 cli
+onnxruntime

@@ -15,11 +15,12 @@
     "build": "npm run check && npm run build:main && npm run build:preload && npm run build:native",
     "build:web": "npm --prefix ../web run build:desktop",
     "stage:cli": "npm --prefix ../cli run build && node scripts/stage-cli.mjs",
+    "stage:onnx": "node scripts/stage-onnxruntime.mjs",
     "check": "tsc --noEmit",
     "dev": "npm run build && electron-forge start",
-    "package": "npm run build && npm run build:web && npm run stage:cli && electron-forge package",
-    "make": "npm run build && npm run build:web && npm run stage:cli && electron-forge make",
-    "publish": "npm run build && npm run build:web && npm run stage:cli && electron-forge publish",
+    "package": "npm run build && npm run build:web && npm run stage:cli && npm run stage:onnx && electron-forge package",
+    "make": "npm run build && npm run build:web && npm run stage:cli && npm run stage:onnx && electron-forge make",
+    "publish": "npm run build && npm run build:web && npm run stage:cli && npm run stage:onnx && electron-forge publish",
     "make:icns": "sh scripts/make-icns.sh"
   },
   "devDependencies": {

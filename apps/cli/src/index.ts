@@ -16,6 +16,7 @@ import { compileProject } from "./compile-project";
 import { listLocalFonts } from "./fonts";
 import { buildIssueBody, createIssue } from "./report";
 import { openFolder } from "./open-folder";
+import { validateMatteOptions } from "./matte-options";
 import { fetchVideo } from "./ytdlp";
 import { MAX_FRAMES_PER_SHEET } from "./protocol";
 import type { AssetRef, EncoderConfigInput, FrameQuality, LogEntry, LogLevel, NodePatch, TimecodedImage } from "./protocol";
@@ -593,25 +594,12 @@ async function mediaMatte(ref: string, opts: MediaMatteOptions): Promise<void> {
   const target = resolveAssetRef(ref);
   const startSec = opts.start !== undefined ? parseTimeArg(opts.start, "--start") : undefined;
 
-  if (opts.model !== undefined && opts.model !== "resnet50" && opts.model !== "mobilenetv3") {
-    console.error(`--model must be resnet50 or mobilenetv3, got "${opts.model}".`);
+  const checked = validateMatteOptions(opts);
+  if ("error" in checked) {
+    console.error(checked.error);
     process.exit(1);
   }
-  const ratio = opts.ratio !== undefined ? Number(opts.ratio) : undefined;
-  if (ratio !== undefined && (!Number.isFinite(ratio) || ratio <= 0 || ratio > 1)) {
-    console.error(`--ratio must be a number in (0, 1], got "${opts.ratio}".`);
-    process.exit(1);
-  }
-  const despill = opts.despill !== undefined ? Number(opts.despill) : undefined;
-  if (despill !== undefined && (!Number.isFinite(despill) || despill < 0 || despill > 1)) {
-    console.error(`--despill must be a number in [0, 1], got "${opts.despill}".`);
-    process.exit(1);
-  }
-  const maxFrames = opts.frames !== undefined ? Number(opts.frames) : undefined;
-  if (maxFrames !== undefined && (!Number.isInteger(maxFrames) || maxFrames < 1)) {
-    console.error(`--frames must be a positive whole number, got "${opts.frames}".`);
-    process.exit(1);
-  }
+  const { model, ratio, despill, maxFrames } = checked.values;
 
   // No spinner: this runs for minutes and the main process pushes real frame
   // counts, so a spinner would be the least informative thing on screen.
@@ -620,7 +608,7 @@ async function mediaMatte(ref: string, opts: MediaMatteOptions): Promise<void> {
     const result = await editor.media.matte.mutate({
       ...target,
       output: resolve(opts.output),
-      model: opts.model as "resnet50" | "mobilenetv3" | undefined,
+      model,
       ratio,
       despill,
       startSec,

@@ -302,6 +302,29 @@ worth nothing once encoded.
 the alpha side-channel are mutually exclusive, and with alt-ref on the alpha is
 **silently dropped** — the encode succeeds and the matte is simply opaque.
 
+### Streaming is not the same as bounded
+
+Nothing is staged on disk, and for a while that was mistaken for the memory
+being bounded too. It was not. Attaching a `data` handler puts a stream in
+flowing mode, and ffmpeg decodes roughly ten times faster than resnet50 infers,
+so the decoder raced ahead and every undelivered frame waited in the heap.
+
+| | peak RSS over 250 frames |
+| --- | --- |
+| before | **6.25 GB**, still climbing |
+| after | **2.88 GB**, flat |
+
+The 2.88 GB that remains is the model and the CoreML runtime — a fixed cost that
+does not grow with the clip. The fix is a high-water mark of four frames in
+`frameReader`, pausing the source and resuming when the backlog drains; the
+encode side already had backpressure and this is the same contract on the decode
+side. Output is bit-identical: 0.0000 percentage points of coverage difference
+across 187 frames.
+
+Worth stating plainly because the docstring above was already claiming this
+property: **the ~21 GB intermediate was avoided on disk and quietly
+reintroduced in memory.** `apps/desktop/src/matte-frames.test.ts` guards it.
+
 ### End-to-end speed is not inference speed
 
 | | fps | 2 min of 35 fps footage |

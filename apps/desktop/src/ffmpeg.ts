@@ -126,25 +126,36 @@ const brewPrefix = (): Promise<string | null> =>
   });
 
 /**
+ * The names in one `-filters`/`-encoders`/`-decoders` listing.
+ *
+ * Every such listing prints one item per line as `<flags> <name> <description>`,
+ * so the name is the second field. Split out from `probe` and exported because
+ * this is the part that can be wrong without anything visibly breaking: a
+ * listing that parses to nothing looks exactly like a build that can do
+ * nothing, and both end as "install ffmpeg".
+ */
+export function parseListing(out: string): Set<string> {
+  const names = out
+    .split(/\r?\n/)
+    .map((line) => line.trim().split(/\s+/))
+    // A listing row is `<flags> <name> …`; headers and rules are not.
+    .filter((parts) => parts.length >= 2 && /^[A-Z.]+$/i.test(parts[0]) && parts[0] !== parts[1])
+    .map((parts) => parts[1]);
+  return new Set(names);
+}
+
+/**
  * Ask a binary what it can do.
  *
- * `-filters`, `-encoders` and `-decoders` all print one item per line as
- * `<flags> <name> <description>`, so the name is the second field. Returns null
- * when the binary cannot be executed at all — a broken install and a missing
- * one are the same thing to the caller.
+ * Returns null when the binary cannot be executed at all — a broken install and
+ * a missing one are the same thing to the caller.
  */
 export async function probe(binary: string): Promise<FfmpegCapabilities | null> {
   const ask = (flag: string): Promise<Set<string>> =>
     new Promise((resolve) => {
       execFile(binary, ["-hide_banner", flag], { maxBuffer: 8 << 20 }, (err, stdout) => {
         if (err && !stdout) return resolve(new Set());
-        const names = stdout
-          .split(/\r?\n/)
-          .map((line) => line.trim().split(/\s+/))
-          // A listing row is `<flags> <name> …`; headers and rules are not.
-          .filter((parts) => parts.length >= 2 && /^[A-Z.]+$/i.test(parts[0]) && parts[0] !== parts[1])
-          .map((parts) => parts[1]);
-        resolve(new Set(names));
+        resolve(parseListing(stdout));
       });
     });
 

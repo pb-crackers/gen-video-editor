@@ -4,7 +4,10 @@
   "private": true,
   "license": "MPL-2.0",
   "type": "module",
-  "workspaces": ["apps/*", "packages/*"],
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
   "scripts": {
     "dev": "npm run dev:web",
     "dev:web": "npm run dev --workspace=@diffusionstudio/web",
@@ -15,6 +18,11 @@
     "make": "npm run make --workspace=@diffusionstudio/desktop",
     "release": "node scripts/release.mjs",
     "lint": "npm run lint --workspaces --if-present",
-    "check": "npm run check --workspaces --if-present && tsc -p examples --noEmit"
+    "check": "npm run check --workspaces --if-present && tsc -p examples --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "devDependencies": {
+    "vitest": "^4.1.10"
   }
 }

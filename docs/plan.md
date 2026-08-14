@@ -78,12 +78,23 @@ no speaker in it rather than wondering why the matte is empty.
 (The earlier worry that `dapi` was an unmodifiable Homebrew binary was wrong:
 `/opt/homebrew/bin/dapi` is a symlink into `apps/cli/dist`.)
 
-**⬜ Packaging is not done.** `onnxruntime-node` cannot be bundled by esbuild —
-it loads a `.node` binary — so `build:main` marks it external. `forge.config.ts`
-ships no `node_modules`, and npm hoists the package to the repo root rather than
-`apps/desktop`, so it needs a stage script like `scripts/stage-cli.mjs`, copying
-only the current platform's binary (259 MB across all of them). Until that
-exists, matting works in dev and fails in a packaged build.
+**✅ Packaging.** `apps/desktop/scripts/stage-onnxruntime.mjs` stages the native
+module — **259 MB → 38 MB**, current platform only, with macOS's two
+byte-identical `libonnxruntime` copies deduped to a symlink. Verified by real
+`InferenceSession.create` on the CoreML provider against the RVM model,
+resolving only from the staged tree. It throws rather than staging nothing if
+the platform has no binary, which is not hypothetical: **1.27.0 ships no
+darwin/x64**, so an Intel build would otherwise have packaged a silently broken
+`dapi media matte`.
+
+Still unproven: no `electron-forge package` was run, so the landing spot inside
+the bundle and whether notarization accepts these binaries are untested.
+
+**✅ Tests.** `npm test` (vitest, config at `vitest.config.ts`, node-side code
+only — `apps/web` needs a DOM and a GPU). 44 tests over the places where a wrong
+answer is *silent*: the ffmpeg capability parser, `missingCapabilities`,
+`frameReader`'s frame assembly and backpressure, `despill`, and the CLI's option
+validation. All mutation-checked against the source rather than the assertions.
 
 The reasoning that settled the architecture, kept because it is the expensive
 part:

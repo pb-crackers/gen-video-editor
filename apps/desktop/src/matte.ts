@@ -46,6 +46,7 @@ import { pipeline } from "node:stream/promises";
 import { InferenceSession, Tensor } from "onnxruntime-node";
 
 import { ensureFfmpeg, probeMedia, type MediaInfo } from "./ffmpeg";
+import { despill, frameReader } from "./matte-frames";
 
 const electron = () => import("electron");
 
@@ -174,56 +175,6 @@ export async function ensureMatteModel(
   });
 
   return inFlight;
-}
-
-/**
- * Pull green back where it exceeds the mean of red and blue.
- *
- * The room's LED wash bleeds into edge pixels and reads as a cyan fringe
- * against a dark plate. Skin is naturally r > g > b, so its green sits *below*
- * that mean and this leaves it alone; only genuinely green-cast pixels move.
- * Killing the light fixes it better than any of this (§ 5).
- */
-function despill(r: number, g: number, b: number, amount: number): number {
-  const mean = (r + b) / 2;
-  return g > mean ? g - (g - mean) * amount : g;
-}
-
-/** Reads exactly `size`-byte frames out of a stream that knows nothing about frames. */
-function frameReader(stream: NodeJS.ReadableStream, size: number) {
-  let pending: Buffer[] = [];
-  let pendingBytes = 0;
-  const waiters: Array<(f: Buffer | null) => void> = [];
-  let done = false;
-
-  const flush = () => {
-    while (waiters.length && (pendingBytes >= size || done)) {
-      if (pendingBytes < size) {
-        waiters.shift()!(null);
-        continue;
-      }
-      const joined = Buffer.concat(pending, pendingBytes);
-      waiters.shift()!(joined.subarray(0, size));
-      pending = [joined.subarray(size)];
-      pendingBytes = pending[0].length;
-    }
-  };
-
-  stream.on("data", (c: Buffer) => {
-    pending.push(c);
-    pendingBytes += c.length;
-    flush();
-  });
-  stream.on("end", () => {
-    done = true;
-    flush();
-  });
-
-  return () =>
-    new Promise<Buffer | null>((resolve) => {
-      waiters.push(resolve);
-      flush();
-    });
 }
 
 /**
