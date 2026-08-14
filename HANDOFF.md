@@ -20,10 +20,29 @@ Where this is, what was decided, and what bites. Read `docs/matte.md` and
   (`apps/desktop/src/whisper.ts`): finds an existing install, otherwise asks and
   installs (brew, else cmake build). Both call sites converted —
   `dapi media transcribe` and `<captions>`. 122s of speech → 8.9s, no network.
-- **`film/`** — the edit as a file. `schema.ts` (ported contract), `compile.tsx`
-  (config → JSX), `primitives/` (`stat`, `title`, `bullets` on a shared
-  `frame.tsx`), `demo.json`, `demo.tsx`.
-- **`docs/matte.md`** — measured matte findings. Not implemented yet.
+- **`film/`** — the edit as a file. `schema.ts` (ported contract), `format.ts`
+  (portrait + landscape), `compile.tsx` (config → JSX), `primitives/` (`stat`,
+  `title`, `bullets` on a shared `frame.tsx`), `demo.json`, `demo.tsx`,
+  `demo-landscape.tsx`.
+- **Video alpha works on the output path.** mediabunny already demuxed VP9 alpha;
+  nothing was asking it to. `VideoExporter` passes `alpha: true` to `CanvasSink`,
+  gated on `track.canBeTransparent()`. Graphics now render behind the speaker.
+- **Speaker mattes, locally.** `dapi media matte <id|path> -o out.webm
+  [--start] [--frames]`. Tone-map → RVM resnet50 on CoreML → despill → VP9+alpha,
+  streamed over pipes. ~2.5 fps, so a 2-minute clip is ~30 minutes. Reports
+  `coverage` and warns at ~0, which is how you learn a range has no speaker in it.
+- **ffmpeg is found-or-installed** (`apps/desktop/src/ffmpeg.ts`) — and probes
+  *capabilities*, not the presence of a binary. See the traps below.
+- **Packaging for the native module.** `apps/desktop/scripts/stage-onnxruntime.mjs`,
+  259 MB → 38 MB. Not proven through a real signed build.
+- **Both frames.** Portrait (reels) and landscape (YouTube); a config names a
+  `format` and dimensions derive from it. Portrait renders pixel-identical to
+  before formats existed.
+- **Tests.** `npm test` — 81, vitest, node-side only. Aimed at what fails
+  *silently*: the ffmpeg capability parser, frame assembly and its backpressure,
+  despill, format geometry, and the schema's parse-time checks.
+- **`docs/matte.md`** — measured matte findings, several of them corrections to
+  earlier measurements. Read the ⚠ boxes.
 
 ## Decisions, with the reason
 
@@ -66,32 +85,89 @@ Where this is, what was decided, and what bites. Read `docs/matte.md` and
   under correct overlays. Capture single timestamps when it matters.
 - **`<html>` box clips its content**, and shadow blur clipping at the box edge
   leaves a visible seam across the frame. Size boxes with headroom.
+- **`which ffmpeg` proves nothing.** Homebrew's plain `ffmpeg` omits libzimg, so
+  it has no `zscale` and cannot tone-map HDR — while looking entirely healthy.
+  `ffmpeg-full` is the formula that carries it. Install *that*.
+- **`-auto-alt-ref 0` is mandatory when encoding VP9 with alpha.** libvpx's
+  alt-ref frames and the alpha side-channel are mutually exclusive, and with
+  alt-ref on the alpha is **silently dropped** — the encode succeeds and the
+  matte is simply opaque.
+- **The source is 34.989 fps, not 35.** Read frame rates as rationals and never
+  round them, or a matte drifts against the footage it was cut from.
+- **The footage is not one continuous shot.** It cuts to screen recordings. An
+  empty matte over such a range is the correct answer, not a failure — hence
+  `coverage`, and hence matting per segment rather than per file.
+- **onnxruntime-node has no `default` export.** Bundled to CJS with the package
+  external, `import ort from "onnxruntime-node"` typechecks perfectly and is
+  `undefined` at runtime. Use named imports.
+- **Streaming is not the same as bounded.** `frameReader` had no backpressure,
+  so ffmpeg raced ahead of inference and 250 frames peaked at 6.25 GB. Fixed
+  with a four-frame high-water mark; now flat at 2.88 GB. Tests guard it.
+- **`film/` is only typechecked by `film/tsconfig.json`**, which is wired into
+  `npm run check` *before* the `examples` one — `examples/06-three.tsx` fails
+  on a missing `three` dependency (pre-existing, upstream's), and behind a `&&`
+  the film check would never run.
 
-## Next
+## Next: the skills
 
-**[docs/plan.md](docs/plan.md) is the ordered task list.** In short:
+**[docs/plan.md](docs/plan.md) is the ordered task list.** Tasks 1 (matte) and 2
+(format) are done. **Task 4, the skills, is what to do next** — chosen ahead of
+more primitives because the goal now is to get this usable on real videos and
+find the kinks by using it.
 
-1. **The matte** — graphics behind the speaker. The engine drops video alpha, so
-   the effect is unavailable. Highest value and biggest unknown, so it goes first.
-2. **Format** — portrait *and* landscape. Reels and YouTube are both first-class,
-   and the difference is not a width parameter. Blocking: every primitive built
-   before this bakes in portrait.
-3. **Primitives** — a floor so the agent does not start from zero, not a port of
-   directors-cut's fifteen kinds. `custom` (agent-authored components) matters
-   more than the rest of the list combined.
-4. **The skills** — `editor` keeps mechanics, `director` owns judgment. Last,
-   because a skill describing capabilities that do not exist is fiction.
+The split, already settled by investigation:
 
-**The differ is deferred.** It is the right design, but it protects an iterative
-edit loop that does not exist until the above works.
+- **`editor`** — mechanics. How to drive `dapi` and this engine: probe,
+  transcribe, grab, mount, capture, verify. Upstream's copy is at
+  `~/.claude/skills/editor/SKILL.md` (92 lines) and is good. **Strip its
+  § Compositing section** — those ten lines are house style and will fight the
+  director skill.
+- **`director`** — judgement. Telling the story, choosing the graphic, when a
+  graphic earns its place, matte discipline, reviewing your own output.
+
+The source for `director` is directors-cut's `.claude/skills/reel-director/SKILL.md`
+— **1,424 lines**, and roughly half of it dies in the port because it is Remotion
+mechanics: `interpolate()` inline, the `useCurrentFrame()` sequence-relative
+trap, `npm run scenes`, `Surface.test.ts`, Remotion #659, the registry drift
+test. The other half is about film and ports unchanged — § Choosing a canvas,
+§ Page mocks, "a dashboard is built to read as a dashboard, not to be read",
+§ Common mistakes, § Reviewing your own graphics. That half is the asset and
+nobody would reconstruct it from scratch. **Do not port it as one file.**
+
+Two things to carry in from this fork that upstream's skill cannot know:
+
+- `dapi media matte` exists, is slow, and should be run per segment.
+- A config names a `format`; landscape is real now.
+
+And one open design question worth deciding deliberately rather than inheriting:
+**does the config stay a closed schema with `custom` as one member, or become
+thin — timing, layout, component name — with nearly every graphic
+agent-authored?** directors-cut hedged and kept both. The first keeps a differ
+meaningful; the second is where "the agent designs whole screens" actually
+leads.
+
+**Deferred, still right:** the differ (old config vs new → minimal `node patch`
+set). It protects an iterative edit loop that barely exists yet.
+
+**Also open:** live-preview alpha (`docs/plan.md` § 1b) — the app shows mattes
+opaque on screen while exporting them correctly. Cosmetic for the agent loop,
+confusing for a human.
 
 ## Running it
 
 ```sh
 npm run dev:desktop                  # main-process changes need a restart
-dapi mount film/demo.tsx
+npm test                             # 81 tests
+npm run check                        # tsc across workspaces + film
+dapi mount film/demo.tsx             # portrait
+dapi mount film/demo-landscape.tsx   # the same config, landscape
 dapi node grep "seg:hours-total" -k Name
+dapi media matte <id|path> -o out.webm --start 16 --frames 40
 ```
 
+If the app will not start, port 5173 is usually still held by a previous dev
+server: `lsof -ti:5173 | xargs kill -9`.
+
+The RVM model lives at `~/Library/Application Support/Diffusion Studio/matte/models/`.
 Scratch work (comparison clips, benchmarks) is in `~/devlog-part3/`, outside the
 repo.
