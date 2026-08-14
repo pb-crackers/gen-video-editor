@@ -17,7 +17,7 @@ import { defineConfig } from "vitest/config";
 export default defineConfig({
   test: {
     environment: "node",
-    include: ["apps/*/src/**/*.test.ts", "packages/*/src/**/*.test.ts"],
+    include: ["apps/*/src/**/*.test.ts", "packages/*/src/**/*.test.ts", "film/**/*.test.ts"],
     // The renderer's own suites would need a DOM and a GPU; this config covers
     // node-side code only, and picking up a browser test would fail confusingly.
     exclude: ["**/node_modules/**", "apps/web/**"],
