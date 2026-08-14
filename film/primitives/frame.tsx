@@ -13,6 +13,8 @@ import { createEffect } from "solid-js";
 import { createStore } from "solid-js/store";
 import { useTicker } from "@diffusionstudio/jsx";
 
+import { CARD_STYLE, FORMATS, TYPE } from "../format";
+
 export type Theme = { accent: string; ink: string; card: string; muted?: string };
 
 export const DEFAULT_THEME: Required<Theme> = {
@@ -22,25 +24,30 @@ export const DEFAULT_THEME: Required<Theme> = {
   muted: "rgba(255,255,255,.62)",
 };
 
-/** One type scale. Primitives pick from it; they do not invent sizes. */
-export const TYPE = {
-  display: 108,
-  displayLong: 84,
-  title: 58,
-  value: 112,
-  label: 44,
-  body: 38,
-  sub: 28,
-  eyebrow: 26,
-};
+/**
+ * The type scale and card chrome now live in `../format`, because they are
+ * shared across formats while position is not. Re-exported here so primitives
+ * keep importing their look from one place.
+ */
+export { TYPE };
 
+/**
+ * The portrait card, kept as a named constant only so existing callers and
+ * defaults keep working unchanged.
+ *
+ * **Do not reach for this in a new primitive.** It is portrait, and a primitive
+ * that reads it is a primitive that renders in the wrong place on YouTube.
+ * Take a `format` and call `cardBox(format, height)` instead — that is the
+ * whole point of the format module, and `stat` having quietly grown its own
+ * copy of these four numbers is what it exists to prevent.
+ */
 export const CARD = {
-  x: 70,
-  y: 200,
-  width: 940,
-  radius: 28,
-  padding: "32px 40px",
-  hairline: "1px solid rgba(255,255,255,.12)",
+  x: FORMATS.portrait.card.x,
+  y: FORMATS.portrait.card.y,
+  width: FORMATS.portrait.card.width,
+  radius: CARD_STYLE.radius,
+  padding: CARD_STYLE.padding,
+  hairline: CARD_STYLE.hairline,
 };
 
 export const clamp = (v: number, lo: number, hi: number) => Math.min(Math.max(v, lo), hi);

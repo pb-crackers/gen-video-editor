@@ -8,7 +8,8 @@
  * is a list that fights the voice.
  */
 import { For } from "solid-js";
-import { CanvasFrame, TYPE, CARD, DEFAULT_THEME, entrance, useLocalTime, type Theme } from "./frame";
+import { CanvasFrame, TYPE, DEFAULT_THEME, entrance, useLocalTime, type Theme } from "./frame";
+import { FORMATS, cardBox, type Format } from "../format";
 
 export type BulletItem = { text: string; atMs?: number };
 
@@ -21,15 +22,30 @@ export type BulletsProps = {
   start: number;
   end: number;
   name?: string;
+  /** Where the card goes. Defaults to portrait so existing callers are unchanged. */
+  format?: Format;
   x?: number;
   y?: number;
   width?: number;
   height?: number;
 };
 
+/**
+ * How tall a bullets card draws when nothing overrides it. This is the tallest
+ * card the library produces, which is why `TALLEST_CARD` in ../format is
+ * checked against the safe area using this number.
+ */
+const HEIGHT = 560;
+
 export function Bullets(props: BulletsProps) {
   const t = useLocalTime(() => props.start);
   const theme = () => ({ ...DEFAULT_THEME, ...(props.theme ?? {}) });
+  const box = () =>
+    cardBox(props.format ?? FORMATS.portrait, props.height ?? HEIGHT, {
+      x: props.x,
+      y: props.y,
+      width: props.width,
+    });
 
   /** Seconds after this graphic appears at which item `i` should land. */
   const at = (i: number) => {
@@ -43,10 +59,10 @@ export function Bullets(props: BulletsProps) {
 
   return (
     <html
-      x={props.x ?? CARD.x}
-      y={props.y ?? CARD.y}
-      width={props.width ?? CARD.width}
-      height={props.height ?? 560}
+      x={box().x}
+      y={box().y}
+      width={box().width}
+      height={box().height}
       start={props.start}
       end={props.end}
       name={props.name ?? `Bullets: ${props.title ?? props.items[0]?.text ?? ""}`}

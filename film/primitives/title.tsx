@@ -6,7 +6,11 @@
  * TitleCanvas, including its one piece of content-awareness — a long title
  * steps down a size rather than overflowing.
  */
-import { CanvasFrame, TYPE, CARD, DEFAULT_THEME, entrance, useLocalTime, type Theme } from "./frame";
+import { CanvasFrame, TYPE, DEFAULT_THEME, entrance, useLocalTime, type Theme } from "./frame";
+import { FORMATS, cardBox, type Format } from "../format";
+
+/** How tall a title card draws when nothing overrides it. */
+const HEIGHT = 520;
 
 export type TitleProps = {
   title: string;
@@ -16,6 +20,8 @@ export type TitleProps = {
   start: number;
   end: number;
   name?: string;
+  /** Where the card goes. Defaults to portrait so existing callers are unchanged. */
+  format?: Format;
   x?: number;
   y?: number;
   width?: number;
@@ -25,13 +31,19 @@ export type TitleProps = {
 export function Title(props: TitleProps) {
   const t = useLocalTime(() => props.start);
   const theme = () => ({ ...DEFAULT_THEME, ...(props.theme ?? {}) });
+  const box = () =>
+    cardBox(props.format ?? FORMATS.portrait, props.height ?? HEIGHT, {
+      x: props.x,
+      y: props.y,
+      width: props.width,
+    });
 
   return (
     <html
-      x={props.x ?? CARD.x}
-      y={props.y ?? CARD.y}
-      width={props.width ?? CARD.width}
-      height={props.height ?? 520}
+      x={box().x}
+      y={box().y}
+      width={box().width}
+      height={box().height}
       start={props.start}
       end={props.end}
       name={props.name ?? `Title: ${props.title}`}

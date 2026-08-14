@@ -1,0 +1,15 @@
+{
+  // film/ was not covered by any tsconfig, so nothing typechecked the schema,
+  // the compiler or the primitives — `npm run check` walked straight past the
+  // whole library. Modelled on examples/tsconfig.json, which faces the same
+  // problem: standalone JSX compositions built against @diffusionstudio/jsx.
+  "extends": "../tsconfig.base.json",
+  "compilerOptions": {
+    "jsx": "preserve",
+    "jsxImportSource": "@diffusionstudio/jsx",
+    "lib": ["ES2024", "DOM", "DOM.Iterable"],
+    "types": ["@webgpu/types"],
+    "resolveJsonModule": true
+  },
+  "include": ["**/*.ts", "**/*.tsx"]
+}

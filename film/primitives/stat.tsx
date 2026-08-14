@@ -14,6 +14,8 @@ import { createStore } from "solid-js/store";
 import { createTimeline } from "animejs";
 import { useTicker } from "@diffusionstudio/jsx";
 
+import { FORMATS, cardBox, type Format } from "../format";
+
 /** The design system this primitive draws from. Not caller-settable. */
 const TOKENS = {
   sans: "Inter, 'Helvetica Neue', Helvetica, sans-serif",
@@ -48,6 +50,8 @@ export type StatProps = {
   theme?: StatTheme;
   /** Node name. The compiler stamps the segment id here; see film/compile.tsx. */
   name?: string;
+  /** Where the card goes. Defaults to portrait so existing callers are unchanged. */
+  format?: Format;
   x?: number;
   y?: number;
   width?: number;
@@ -73,9 +77,20 @@ function parseValue(value: string) {
 
 const clamp = (v: number, lo: number, hi: number) => Math.min(Math.max(v, lo), hi);
 
+/** How tall a stat card draws when nothing overrides it. */
+const HEIGHT = 360;
+
 export function Stat(props: StatProps) {
   const theme = (): StatTheme =>
     props.theme ?? { accent: TOKENS.accent, ink: TOKENS.ink, card: TOKENS.card };
+  // Was four hardcoded portrait numbers, duplicated from frame.tsx's CARD.
+  // That duplication is exactly what the format module exists to stop.
+  const box = () =>
+    cardBox(props.format ?? FORMATS.portrait, props.height ?? HEIGHT, {
+      x: props.x,
+      y: props.y,
+      width: props.width,
+    });
   const parsed = () => (props.countUp !== false ? parseValue(props.value) : null);
 
   const v = { rise: 36, opacity: 0, count: 0, note: 0 };
@@ -114,16 +129,16 @@ export function Stat(props: StatProps) {
     const n = widest().length;
     if (n <= 6) return TOKENS.valueSize;
     // ~0.62em average advance for this weight; leave the label half the card.
-    const budget = ((props.width ?? 940) - 80) * 0.52;
+    const budget = (box().width - 80) * 0.52;
     return Math.max(44, Math.min(TOKENS.valueSize, budget / (n * 0.62)));
   };
 
   return (
     <html
-      x={props.x ?? 70}
-      y={props.y ?? 200}
-      width={props.width ?? 940}
-      height={props.height ?? 360}
+      x={box().x}
+      y={box().y}
+      width={box().width}
+      height={box().height}
       start={props.start}
       end={props.end}
       name={props.name ?? `Stat: ${props.label}`}
